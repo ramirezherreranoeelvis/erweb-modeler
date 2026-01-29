@@ -61,21 +61,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
                   </div>
 
                   <div className="flex items-center gap-2 sm:gap-3">
-                        <button
-                              onClick={() =>
-                                    setTheme(
-                                          theme === "light" ? "dark" : "light",
-                                    )
-                              }
-                              className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"
-                        >
-                              {theme === "light" ? (
-                                    <Moon size={18} />
-                              ) : (
-                                    <Sun size={18} />
-                              )}
-                        </button>
-
                         <div className="flex bg-slate-100 dark:bg-slate-700 rounded-lg p-0.5 border border-slate-200 dark:border-slate-600 hidden sm:flex">
                               <button
                                     onClick={() =>
