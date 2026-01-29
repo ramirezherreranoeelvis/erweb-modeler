@@ -1,17 +1,10 @@
-import React, {
-      useState,
-      useMemo,
-      useCallback,
-      useRef,
-      useEffect,
-} from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
       Plus,
       Trash2,
       Eye,
       AlertTriangle,
       GitMerge,
-      Type,
       Edit3,
       Lock,
       ZoomIn,
