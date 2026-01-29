@@ -7,8 +7,6 @@ import {
       GitMerge,
       Edit3,
       Lock,
-      ZoomIn,
-      ZoomOut,
 } from "lucide-react";
 import type {
       Table,
@@ -305,6 +303,9 @@ const App = () => {
             null,
       );
 
+      // Touch Zoom Refs
+      const touchDist = useRef<number | null>(null);
+
       // --- Derived State for Physical/Logical Views ---
       const { viewTables, viewRelationships } = useMemo(() => {
             // If Logical View: Show everything as is
@@ -587,13 +588,14 @@ const App = () => {
       };
 
       const startConnection = (
-            e: React.MouseEvent,
+            e: React.PointerEvent,
             tableId: string,
             colId: string,
             side: "left" | "right",
       ) => {
             e.stopPropagation();
-            e.preventDefault();
+            // Do NOT prevent default here to allow pointer capture if needed, though stopPropagation is key
+            // e.preventDefault();
             setRelMenu(null);
 
             // Initial start position (approximate, refined by geometry logic)
@@ -611,6 +613,11 @@ const App = () => {
                   startY: table.y + 40, // simplified, will update on render
                   side,
             });
+
+            // Capture the pointer on the canvas to track movement even if we leave the node
+            if (mainRef.current) {
+                  mainRef.current.setPointerCapture(e.pointerId);
+            }
       };
 
       const completeConnectionToNewColumn = (
@@ -821,6 +828,33 @@ const App = () => {
                   // Capture pointer to ensure we get moves even outside canvas
                   (e.target as HTMLElement).setPointerCapture(e.pointerId);
             }
+      };
+
+      // --- Pinch to Zoom Logic ---
+      const handleTouchStart = (e: React.TouchEvent) => {
+            if (e.touches.length === 2) {
+                  const d = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY,
+                  );
+                  touchDist.current = d;
+            }
+      };
+
+      const handleTouchMove = (e: React.TouchEvent) => {
+            if (e.touches.length === 2 && touchDist.current !== null) {
+                  const newDist = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY,
+                  );
+                  const scale = newDist / touchDist.current;
+                  setZoom((prev) => Math.min(Math.max(0.5, prev * scale), 2));
+                  touchDist.current = newDist;
+            }
+      };
+
+      const handleTouchEnd = () => {
+            touchDist.current = null;
       };
 
       const handlePointerMove = (e: React.PointerEvent) => {
@@ -1450,15 +1484,21 @@ const App = () => {
       const gridColor = theme === "dark" ? "#334155" : "#cbd5e1";
 
       return (
-            <div className={theme}>
+            <div
+                  className={`${theme} w-full min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-200`}
+            >
                   <div
-                        className="flex flex-col h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans overflow-hidden transition-colors duration-200"
+                        className="flex flex-col h-screen w-full bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans overflow-hidden transition-colors duration-200"
                         onClick={() => setRelMenu(null)}
                         // Switched to Pointer Events for consistent mobile/desktop interaction
                         onPointerMove={handlePointerMove}
                         onPointerUp={handlePointerUp}
                         // Add onPointerCancel to handle interruptions (like scrolling on touch)
                         onPointerCancel={handlePointerUp}
+                        // Touch handlers for pinch-to-zoom
+                        onTouchStart={handleTouchStart}
+                        onTouchMove={handleTouchMove}
+                        onTouchEnd={handleTouchEnd}
                   >
                         {/* Warning Modal */}
                         {warningModal && warningModal.isOpen && (
@@ -1654,7 +1694,8 @@ const App = () => {
                                           </div>
                                     </button>
 
-                                    <div className="grid grid-cols-2 gap-2">
+                                    {/* Desktop-only Buttons */}
+                                    <div className="hidden md:grid grid-cols-2 gap-2">
                                           <button
                                                 onClick={addTable}
                                                 className="flex flex-col items-center justify-center p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-lg text-blue-700 dark:text-blue-300 transition-all gap-1 group"
@@ -1675,6 +1716,7 @@ const App = () => {
                                                 </span>
                                           </button>
                                     </div>
+
                                     <div className="h-[1px] bg-slate-200 dark:bg-slate-700"></div>
                                     <div>
                                           <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-1">
@@ -2339,43 +2381,31 @@ const App = () => {
                                                 />
                                           ))}
                                     </div>
-
-                                    {/* Mobile Zoom Controls - Floating top-right */}
-                                    <div className="absolute top-4 right-4 flex flex-col gap-2 z-30 sm:hidden">
-                                          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md border border-slate-200 dark:border-slate-700 flex flex-col p-1">
-                                                <button
-                                                      onClick={() =>
-                                                            setZoom((z) =>
-                                                                  Math.min(
-                                                                        2,
-                                                                        z + 0.1,
-                                                                  ),
-                                                            )
-                                                      }
-                                                      className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-t active:bg-slate-200 dark:active:bg-slate-600"
-                                                >
-                                                      <ZoomIn size={20} />
-                                                </button>
-                                                <div className="h-[1px] bg-slate-200 dark:bg-slate-700"></div>
-                                                <button
-                                                      onClick={() =>
-                                                            setZoom((z) =>
-                                                                  Math.max(
-                                                                        0.5,
-                                                                        z - 0.1,
-                                                                  ),
-                                                            )
-                                                      }
-                                                      className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-b active:bg-slate-200 dark:active:bg-slate-600"
-                                                >
-                                                      <ZoomOut size={20} />
-                                                </button>
-                                          </div>
-                                          <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur px-2 py-1 rounded shadow-sm text-xs font-mono font-bold text-center text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 select-none">
-                                                {Math.round(zoom * 100)}%
-                                          </div>
-                                    </div>
                               </main>
+
+                              {/* Floating Action Buttons (FABs) - Mobile/Desktop */}
+                              <div className="fixed bottom-6 right-6 z-40">
+                                    <button
+                                          onClick={addTable}
+                                          className="w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
+                                          title="Add New Table"
+                                    >
+                                          <Plus size={28} />
+                                    </button>
+                              </div>
+
+                              {selectedId &&
+                                    !selectedId.startsWith("virt_") && (
+                                          <div className="fixed bottom-6 left-6 z-40">
+                                                <button
+                                                      onClick={deleteTable}
+                                                      className="w-14 h-14 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
+                                                      title="Delete Selected Table"
+                                                >
+                                                      <Trash2 size={24} />
+                                                </button>
+                                          </div>
+                                    )}
 
                               {relMenu && (
                                     <div
