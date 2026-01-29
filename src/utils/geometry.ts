@@ -1,4 +1,4 @@
-import { Table, Relationship } from "../types";
+import type { Table, Relationship } from "../types";
 
 export const HEADER_HEIGHT = 40;
 export const ROW_HEIGHT = 28;
