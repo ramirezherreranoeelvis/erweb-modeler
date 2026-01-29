@@ -1634,6 +1634,8 @@ const App = () => {
                               setViewMode={setViewMode}
                               zoom={zoom}
                               setZoom={setZoom}
+                              theme={theme}
+                              setTheme={setTheme}
                               onToggleSidebar={() =>
                                     setIsSidebarOpen(!isSidebarOpen)
                               }
