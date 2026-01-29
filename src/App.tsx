@@ -17,7 +17,7 @@ import {
       ZoomIn,
       ZoomOut,
 } from "lucide-react";
-import {
+import type {
       Table,
       Relationship,
       ViewOptions,
@@ -39,7 +39,37 @@ import PropertiesPanel from "./components/PropertiesPanel";
 
 const App = () => {
       // --- Theme State ---
-      const [theme, setTheme] = useState<"light" | "dark">("light");
+      // Initialize based on system preference to avoid mismatches
+      const [theme, setTheme] = useState<"light" | "dark">(() => {
+            if (
+                  typeof window !== "undefined" &&
+                  window.matchMedia &&
+                  window.matchMedia("(prefers-color-scheme: dark)").matches
+            ) {
+                  return "dark";
+            }
+            return "light";
+      });
+
+      // Listen for system theme changes
+      useEffect(() => {
+            const mediaQuery = window.matchMedia(
+                  "(prefers-color-scheme: dark)",
+            );
+            const handleChange = (e: MediaQueryListEvent) => {
+                  setTheme(e.matches ? "dark" : "light");
+            };
+
+            // Safely add listener for various browser versions
+            if (mediaQuery.addEventListener) {
+                  mediaQuery.addEventListener("change", handleChange);
+                  return () =>
+                        mediaQuery.removeEventListener("change", handleChange);
+            } else {
+                  mediaQuery.addListener(handleChange);
+                  return () => mediaQuery.removeListener(handleChange);
+            }
+      }, []);
 
       // --- State ---
       const [tables, setTables] = useState<Table[]>([
@@ -662,7 +692,7 @@ const App = () => {
                   );
 
                   const relName =
-                        `fk_${sourceTable.name}_${sourceCol.name}_${targetTable.name}_${newName}`.toLowerCase();
+                        `fk_${sourceTable!.name}_${sourceCol.name}_${targetTable.name}_${newName}`.toLowerCase();
 
                   const newRel: Relationship = {
                         id: generateId(),

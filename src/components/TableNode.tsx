@@ -8,7 +8,7 @@ import {
       Edit3,
       Settings,
 } from "lucide-react";
-import { Table, ViewOptions, TempConnection } from "../types";
+import type { Table, ViewOptions, TempConnection } from "../types";
 import { TABLE_WIDTH } from "../utils/geometry";
 
 interface TableNodeProps {
@@ -583,6 +583,7 @@ const TableNode: React.FC<TableNodeProps> = ({
                                                                                           {
                                                                                                 col.length
                                                                                           }
+
                                                                                           )
                                                                                     </span>
                                                                               )

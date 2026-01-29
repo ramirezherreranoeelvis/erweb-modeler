@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Settings, X, Lock, Key, Trash2, GripVertical } from "lucide-react";
-import { Table, Relationship } from "../types";
+import type { Table, Relationship } from "../types";
 
 interface PropertiesPanelProps {
       selectedTable: Table;
