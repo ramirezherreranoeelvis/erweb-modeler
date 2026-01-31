@@ -14,14 +14,14 @@ interface TableBodyProps {
   onUpdateColumn: (tableId: string, colId: string, field: string, value: any) => void;
   onDeleteColumn: (tableId: string, colId: string) => void;
   onMoveColumn: (tableId: string, fromIndex: number, toIndex: number) => void;
-  onCompleteConnection: (e: React.MouseEvent, tableId: string, colId: string) => void;
+  onCompleteConnection: (e: React.PointerEvent, tableId: string, colId: string) => void;
   onStartConnection: (
     e: React.PointerEvent,
     tableId: string,
     colId: string,
     side: 'left' | 'right',
   ) => void;
-  onCompleteNewColConnection: (e: React.MouseEvent, tableId: string) => void;
+  onCompleteNewColConnection: (e: React.PointerEvent, tableId: string) => void;
 }
 
 interface EditingCell {
@@ -119,7 +119,7 @@ const TableBody: React.FC<TableBodyProps> = ({
       {isConnecting && tempConnection && tempConnection.sourceTableId !== table.id && (
         <div
           className="flex items-center justify-center h-[28px] mx-1 mb-1 mt-1 bg-green-50 dark:bg-green-900/20 border border-dashed border-green-300 dark:border-green-700 rounded hover:bg-green-100 dark:hover:bg-green-900/40 cursor-copy transition-colors animate-pulse"
-          onMouseUp={(e) => onCompleteNewColConnection(e, table.id)}
+          onPointerUp={(e) => onCompleteNewColConnection(e, table.id)}
           title="Drop to create new FK column automatically"
         >
           <CopyPlus size={14} className="text-green-600 dark:text-green-400 mr-1.5" />

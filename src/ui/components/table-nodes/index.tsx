@@ -22,8 +22,8 @@ interface TableNodeProps {
     colId: string,
     side: 'left' | 'right',
   ) => void;
-  onCompleteConnection: (e: React.MouseEvent, tableId: string, colId: string) => void;
-  onCompleteNewColConnection: (e: React.MouseEvent, tableId: string) => void;
+  onCompleteConnection: (e: React.PointerEvent, tableId: string, colId: string) => void;
+  onCompleteNewColConnection: (e: React.PointerEvent, tableId: string) => void;
   onAddColumn: (tableId: string) => void;
   onUpdateTable: (id: string, field: string, value: any) => void;
   onUpdateColumn: (tableId: string, colId: string, field: string, value: any) => void;

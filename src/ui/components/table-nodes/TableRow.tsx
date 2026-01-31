@@ -17,7 +17,7 @@ interface TableRowProps {
   onDragStart: (e: React.DragEvent, index: number) => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent, index: number) => void;
-  onCompleteConnection: (e: React.MouseEvent, tableId: string, colId: string) => void;
+  onCompleteConnection: (e: React.PointerEvent, tableId: string, colId: string) => void;
   onStartConnection: (
     e: React.PointerEvent,
     tableId: string,
@@ -64,7 +64,7 @@ const TableRow: React.FC<TableRowProps> = ({
       className={`group/row relative flex items-center px-3 py-1 text-xs h-[28px] hover:bg-blue-50 dark:hover:bg-slate-700 border-b border-transparent hover:border-blue-100 dark:hover:border-slate-600 transition-colors ${
         draggedIndex === index ? 'opacity-30' : ''
       }`}
-      onMouseUp={(e) => !col.isFk && onCompleteConnection(e, tableId, col.id)}
+      onPointerUp={(e) => !col.isFk && onCompleteConnection(e, tableId, col.id)}
     >
       {/* Drag Grip - Visible on Hover only in Edit Mode */}
       {isLocked && (

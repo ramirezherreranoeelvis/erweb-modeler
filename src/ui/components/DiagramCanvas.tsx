@@ -14,6 +14,7 @@ import {
   getCurveMidpoint,
   TABLE_WIDTH,
   generateId,
+  getColumnRelativeY,
 } from '../../utils/geometry';
 import TableNode from './table-nodes';
 
@@ -203,21 +204,28 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
     if (!table) return;
     if (tableId.startsWith('virt_')) return;
 
+    // Calculate start position accurately
+    const relativeY = getColumnRelativeY(table, colId);
+
     setIsConnecting(true);
     setTempConnection({
       sourceTableId: tableId,
       sourceColId: colId,
-      startX: table.x + (side === 'right' ? 280 : 0),
-      startY: table.y + 40,
+      startX: table.x + (side === 'right' ? TABLE_WIDTH : 0),
+      startY: table.y + relativeY,
       side,
     });
 
-    if (mainRef.current) {
-      mainRef.current.setPointerCapture(e.pointerId);
-    }
+    // NOTE: We do NOT set pointer capture here.
+    // Setting pointer capture on mainRef would prevent the 'onMouseUp' events
+    // on the target TableRow columns from firing, breaking the connection drop logic.
   };
 
-  const completeConnection = (e: React.MouseEvent, targetTableId: string, targetColId: string) => {
+  const completeConnection = (
+    e: React.PointerEvent,
+    targetTableId: string,
+    targetColId: string,
+  ) => {
     if (isConnecting && tempConnection) {
       e.stopPropagation();
 
@@ -297,7 +305,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
     }
   };
 
-  const completeConnectionToNewColumn = (e: React.MouseEvent, targetTableId: string) => {
+  const completeConnectionToNewColumn = (e: React.PointerEvent, targetTableId: string) => {
     if (isConnecting && tempConnection) {
       e.stopPropagation();
 
