@@ -314,7 +314,7 @@ const App = () => {
           const intersectName = rel.name
             ? rel.name.toUpperCase()
             : `REL_${sourceTable.name}_${targetTable.name}`;
-
+          
           // Use the relationship logicalName as the Logical table name, fallback to name
           const intersectLogicalName = rel.logicalName || rel.name || 'Association';
 
@@ -323,8 +323,8 @@ const App = () => {
           let midY = (sourceTable.y + targetTable.y) / 2;
 
           if (rel.x !== undefined && rel.y !== undefined) {
-            midX = rel.x;
-            midY = rel.y;
+             midX = rel.x;
+             midY = rel.y;
           }
 
           // 2. Derive Columns from Source/Target PKs
@@ -787,45 +787,40 @@ const App = () => {
 
     if (dragInfo.isDragging && dragInfo.targetId) {
       // ** CHECK FOR RELATIONSHIP DRAGGING **
-      const draggingRel = relationships.find((r) => r.id === dragInfo.targetId);
+      const draggingRel = relationships.find(r => r.id === dragInfo.targetId);
       if (draggingRel) {
-        const sourceTable = viewTables.find((t) => t.id === draggingRel.fromTable);
-        const targetTable = viewTables.find((t) => t.id === draggingRel.toTable);
+        const sourceTable = viewTables.find(t => t.id === draggingRel.fromTable);
+        const targetTable = viewTables.find(t => t.id === draggingRel.toTable);
 
         if (sourceTable && targetTable) {
-          const sourceCenter = sourceTable.x + TABLE_WIDTH / 2;
-          const targetCenter = targetTable.x + TABLE_WIDTH / 2;
-
-          // Calculate new sides based on mouse position relative to table centers
-          const newSourceSide = x < sourceCenter ? 'left' : 'right';
-          const newTargetSide = x < targetCenter ? 'left' : 'right';
-
-          if (
-            draggingRel.sourceSide !== newSourceSide ||
-            draggingRel.targetSide !== newTargetSide
-          ) {
-            setRelationships((prev) =>
-              prev.map((r) =>
-                r.id === draggingRel.id
-                  ? { ...r, sourceSide: newSourceSide, targetSide: newTargetSide }
-                  : r,
-              ),
-            );
-          }
+            const sourceCenter = sourceTable.x + TABLE_WIDTH / 2;
+            const targetCenter = targetTable.x + TABLE_WIDTH / 2;
+            
+            // Calculate new sides based on mouse position relative to table centers
+            const newSourceSide = x < sourceCenter ? 'left' : 'right';
+            const newTargetSide = x < targetCenter ? 'left' : 'right';
+            
+            if (draggingRel.sourceSide !== newSourceSide || draggingRel.targetSide !== newTargetSide) {
+                setRelationships(prev => prev.map(r => 
+                    r.id === draggingRel.id 
+                    ? { ...r, sourceSide: newSourceSide, targetSide: newTargetSide } 
+                    : r
+                ));
+            }
         }
         return; // Skip other dragging logic
       }
 
       // Handle Virtual Table Dragging
       if (dragInfo.targetId.startsWith('virt_')) {
-        const relId = dragInfo.targetId.replace('virt_', '');
-        const newX = x - dragInfo.offset.x;
-        const newY = y - dragInfo.offset.y;
-
-        setRelationships((prev) =>
-          prev.map((r) => (r.id === relId ? { ...r, x: newX, y: newY } : r)),
-        );
-        return;
+         const relId = dragInfo.targetId.replace('virt_', '');
+         const newX = x - dragInfo.offset.x;
+         const newY = y - dragInfo.offset.y;
+         
+         setRelationships(prev => prev.map(r => 
+           r.id === relId ? { ...r, x: newX, y: newY } : r
+         ));
+         return; 
       }
 
       // Normal Table Dragging
@@ -860,8 +855,8 @@ const App = () => {
 
     // Use viewTables because we might be clicking a virtual table
     const targetTable = viewTables.find((t) => t.id === id);
-
-    // If Global Edit is On, OR specific table is manually editable -> Lock Dragging (Do NOT set dragInfo)
+    
+    // If Global Edit Mode is On, OR specific table is manually editable -> Lock Dragging (Do NOT set dragInfo)
     const isLocked = globalEditable || (targetTable && targetTable.isManuallyEditable);
 
     if (isLocked) {
@@ -960,15 +955,13 @@ const App = () => {
     // Handle Virtual Table Rename (Modifies Relationship)
     if (id.startsWith('virt_')) {
       const relId = id.replace('virt_', '');
-
+      
       if (field === 'name') {
         // Update Physical Name
         setRelationships((prev) => prev.map((r) => (r.id === relId ? { ...r, name: value } : r)));
       } else if (field === 'logicalName') {
         // Update Logical Name
-        setRelationships((prev) =>
-          prev.map((r) => (r.id === relId ? { ...r, logicalName: value } : r)),
-        );
+        setRelationships((prev) => prev.map((r) => (r.id === relId ? { ...r, logicalName: value } : r)));
       } else if (field === 'isManuallyEditable') {
         setRelationships((prev) =>
           prev.map((r) => (r.id === relId ? { ...r, isManuallyEditable: value } : r)),
@@ -1328,10 +1321,8 @@ const App = () => {
 
   // Calculate background image based on gridStyle
   const getGridBackground = () => {
-    if (viewOptions.gridStyle === 'dots')
-      return `radial-gradient(${gridColor} 1px, transparent 1px)`;
-    if (viewOptions.gridStyle === 'squares')
-      return `linear-gradient(to right, ${gridColor} 1px, transparent 1px), linear-gradient(to bottom, ${gridColor} 1px, transparent 1px)`;
+    if (viewOptions.gridStyle === 'dots') return `radial-gradient(${gridColor} 1px, transparent 1px)`;
+    if (viewOptions.gridStyle === 'squares') return `linear-gradient(to right, ${gridColor} 1px, transparent 1px), linear-gradient(to bottom, ${gridColor} 1px, transparent 1px)`;
     return 'none';
   };
 
@@ -1772,19 +1763,17 @@ const App = () => {
             </button>
           </div>
 
-          {selectedId &&
-            !selectedId.startsWith('virt_') &&
-            (globalEditable || selectedTable?.isManuallyEditable) && (
-              <div className="md:hidden fixed bottom-6 left-6 z-40">
-                <button
-                  onClick={deleteTable}
-                  className="w-14 h-14 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
-                  title="Delete Selected Table"
-                >
-                  <Trash2 size={24} />
-                </button>
-              </div>
-            )}
+          {selectedId && !selectedId.startsWith('virt_') && (
+            <div className="md:hidden fixed bottom-6 left-6 z-40">
+              <button
+                onClick={deleteTable}
+                className="w-14 h-14 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
+                title="Delete Selected Table"
+              >
+                <Trash2 size={24} />
+              </button>
+            </div>
+          )}
 
           {relMenu && (
             <div
