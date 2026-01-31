@@ -1,5 +1,4 @@
-import type { Table, Relationship } from '../types';
-
+import type { Table, Relationship } from '../ui/types';
 export const HEADER_HEIGHT = 40;
 export const ROW_HEIGHT = 28;
 export const TABLE_WIDTH = 320;

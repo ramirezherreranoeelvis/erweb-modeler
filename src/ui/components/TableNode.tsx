@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Key, CopyPlus, Plus, Trash2, GripVertical, Edit3, Settings } from 'lucide-react';
 import type { Table, ViewOptions, TempConnection } from '../types';
-import { TABLE_WIDTH } from '../utils/geometry';
+import { TABLE_WIDTH } from '../../utils/geometry';
 
 interface TableNodeProps {
   table: Table;
@@ -56,7 +56,10 @@ const TableNode: React.FC<TableNodeProps> = ({
   onConfig,
 }) => {
   const [isEditingTableName, setIsEditingTableName] = useState(false);
-  const [editTableNameValue, setEditTableNameValue] = useState(table.name);
+  // Initialize based on current view mode
+  const [editTableNameValue, setEditTableNameValue] = useState(
+    viewMode === 'physical' ? table.name : table.logicalName,
+  );
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   // Column Inline Editing State
@@ -70,22 +73,35 @@ const TableNode: React.FC<TableNodeProps> = ({
 
   useEffect(() => {
     if (!isEditingTableName) {
-      setEditTableNameValue(table.name);
+      setEditTableNameValue(viewMode === 'physical' ? table.name : table.logicalName);
     }
-  }, [table.name, isEditingTableName]);
+  }, [table.name, table.logicalName, viewMode, isEditingTableName]);
 
   // Handle Table Name
-  const handleTableNameSubmit = () => {
-    if (editTableNameValue.trim() && !isDuplicateName(editTableNameValue)) {
-      onUpdateTable(table.id, 'name', editTableNameValue.toUpperCase());
-    } else {
-      setEditTableNameValue(table.name);
-    }
-    setIsEditingTableName(false);
+  const isDuplicateName = (name: string) => {
+    // Duplicate check usually only applies to Physical Names
+    return tables.some((t) => t.id !== table.id && t.name.toLowerCase() === name.toLowerCase());
   };
 
-  const isDuplicateName = (name: string) => {
-    return tables.some((t) => t.id !== table.id && t.name.toLowerCase() === name.toLowerCase());
+  const handleTableNameSubmit = () => {
+    const trimmedVal = editTableNameValue.trim();
+    if (!trimmedVal) {
+      setEditTableNameValue(viewMode === 'physical' ? table.name : table.logicalName);
+      setIsEditingTableName(false);
+      return;
+    }
+
+    if (viewMode === 'physical') {
+      if (!isDuplicateName(trimmedVal)) {
+        onUpdateTable(table.id, 'name', trimmedVal.toUpperCase());
+      } else {
+        setEditTableNameValue(table.name);
+      }
+    } else {
+      // Update Logical Name
+      onUpdateTable(table.id, 'logicalName', trimmedVal);
+    }
+    setIsEditingTableName(false);
   };
 
   // Handle Column Inline Editing
@@ -121,9 +137,9 @@ const TableNode: React.FC<TableNodeProps> = ({
         className={`px-3 py-2 border-b border-slate-200 dark:border-slate-700 rounded-t-lg flex justify-between items-center ${isSelected ? 'bg-gradient-to-r from-blue-50 to-white dark:from-blue-900/20 dark:to-slate-800' : 'bg-slate-50 dark:bg-slate-800'}`}
         onDoubleClick={(e) => {
           e.stopPropagation();
-          if (viewMode === 'physical') {
-            setIsEditingTableName(true);
-          }
+          // Allow editing in both modes
+          setIsEditingTableName(true);
+          setEditTableNameValue(viewMode === 'physical' ? table.name : table.logicalName);
         }}
       >
         <div className="flex-1 min-w-0 mr-2">
@@ -136,12 +152,12 @@ const TableNode: React.FC<TableNodeProps> = ({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleTableNameSubmit();
                 if (e.key === 'Escape') {
-                  setEditTableNameValue(table.name);
+                  setEditTableNameValue(viewMode === 'physical' ? table.name : table.logicalName);
                   setIsEditingTableName(false);
                 }
               }}
               onMouseDown={(e) => e.stopPropagation()}
-              className={`w-full text-sm font-bold bg-white dark:bg-slate-900 border rounded px-1 outline-none ${isDuplicateName(editTableNameValue) ? 'border-red-500 text-red-600' : 'border-blue-400 text-slate-800 dark:text-slate-100'}`}
+              className={`w-full text-sm font-bold bg-white dark:bg-slate-900 border rounded px-1 outline-none ${viewMode === 'physical' && isDuplicateName(editTableNameValue) ? 'border-red-500 text-red-600' : 'border-blue-400 text-slate-800 dark:text-slate-100'}`}
             />
           ) : (
             <div

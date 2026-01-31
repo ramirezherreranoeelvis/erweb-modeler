@@ -8,7 +8,7 @@ import type {
   TempConnection,
   WarningData,
   Column,
-} from './types';
+} from './ui/types';
 import {
   generateId,
   calculatePath,
@@ -16,9 +16,9 @@ import {
   getCurveMidpoint,
   TABLE_WIDTH,
 } from './utils/geometry';
-import Toolbar from './components/Toolbar';
-import TableNode from './components/TableNode';
-import PropertiesPanel from './components/PropertiesPanel';
+import Toolbar from './ui/components/Toolbar';
+import TableNode from './ui/components/TableNode';
+import PropertiesPanel from './ui/components/PropertiesPanel';
 
 const App = () => {
   // --- Theme State ---

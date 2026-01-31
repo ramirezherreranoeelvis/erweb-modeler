@@ -102,6 +102,11 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               const isLinkedFk = relationships.some(
                 (r) => r.toTable === selectedTable.id && r.toCol === col.id,
               );
+              // Logic to determine if Length field should be visible
+              const showLength = !['INT', 'BIGINT', 'TEXT', 'DATETIME', 'BOOLEAN', 'DATE'].includes(
+                col.type,
+              );
+
               return (
                 <div
                   key={col.id}
@@ -174,25 +179,22 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                         </select>
                       </div>
 
-                      <div className="w-10 shrink-0 relative">
-                        <label className="text-[9px] text-slate-400 font-bold mb-0.5 flex items-center gap-1">
-                          Len
-                        </label>
-                        <input
-                          placeholder={col.type === 'VARCHAR' ? '255' : ''}
-                          value={col.length}
-                          disabled={
-                            isLinkedFk ||
-                            ['INT', 'BIGINT', 'TEXT', 'DATETIME', 'BOOLEAN', 'DATE'].includes(
-                              col.type,
-                            )
-                          }
-                          onChange={(e) =>
-                            onUpdateColumn(selectedTable.id, col.id, 'length', e.target.value)
-                          }
-                          className={`w-full text-[10px] p-1.5 border border-slate-300 dark:border-slate-600 rounded text-slate-700 dark:text-slate-200 focus:border-blue-400 outline-none ${isLinkedFk || ['INT', 'BIGINT', 'TEXT', 'DATETIME', 'BOOLEAN', 'DATE'].includes(col.type) ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'bg-white dark:bg-slate-800'}`}
-                        />
-                      </div>
+                      {showLength && (
+                        <div className="w-10 shrink-0 relative">
+                          <label className="text-[9px] text-slate-400 font-bold mb-0.5 flex items-center gap-1">
+                            Len
+                          </label>
+                          <input
+                            placeholder={col.type === 'VARCHAR' ? '255' : ''}
+                            value={col.length}
+                            disabled={isLinkedFk}
+                            onChange={(e) =>
+                              onUpdateColumn(selectedTable.id, col.id, 'length', e.target.value)
+                            }
+                            className={`w-full text-[10px] p-1.5 border border-slate-300 dark:border-slate-600 rounded text-slate-700 dark:text-slate-200 focus:border-blue-400 outline-none ${isLinkedFk ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'bg-white dark:bg-slate-800'}`}
+                          />
+                        </div>
+                      )}
 
                       <div className="flex flex-1 justify-end items-center gap-1.5 pb-0.5">
                         <label

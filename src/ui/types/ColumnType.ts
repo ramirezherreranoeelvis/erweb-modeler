@@ -1,0 +1,10 @@
+export type ColumnType =
+  | 'INT'
+  | 'BIGINT'
+  | 'VARCHAR'
+  | 'CHAR'
+  | 'TEXT'
+  | 'DATETIME'
+  | 'DATE'
+  | 'DECIMAL'
+  | 'BOOLEAN';
