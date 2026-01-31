@@ -173,7 +173,10 @@ const TableNode: React.FC<TableNodeProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-1">
+        {/* Action Buttons - Only visible on Hover or Selection (Focus) */}
+        <div
+          className={`flex items-center gap-1 transition-opacity duration-200 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover/table:opacity-100'}`}
+        >
           {/* Settings Button - Only visible on mobile (hidden on md and up) */}
           <button
             onPointerDown={(e) => {
@@ -439,7 +442,7 @@ const TableNode: React.FC<TableNodeProps> = ({
             title="Drop to create new FK column automatically"
           >
             <CopyPlus size={14} className="text-green-600 dark:text-green-400 mr-1.5" />
-            <span className="text-[10px] font-bold text-green-700 dark:text-green-300 uppercase tracking-tight">
+            <span className="text-[10px ] font-bold text-green-700 dark:text-green-300 uppercase tracking-tight">
               New FK Column
             </span>
           </div>
