@@ -1,4 +1,5 @@
 import type { Table, Relationship } from '../ui/types';
+
 export const HEADER_HEIGHT = 40;
 export const ROW_HEIGHT = 28;
 export const TABLE_WIDTH = 320;
@@ -89,7 +90,7 @@ export const getConnectorPoints = (r: Relationship, tables: Table[]) => {
     }
   }
 
-  // Self Reference Override (Force Right-side loop)
+  // Self Reference Override (Force Right-side loop by default)
   if (r.fromTable === r.toTable) {
     p1x = startRight;
     p1y = startY;
@@ -99,6 +100,36 @@ export const getConnectorPoints = (r: Relationship, tables: Table[]) => {
     c1y = p1y;
     c2x = p2x + 60;
     c2y = p2y;
+  }
+
+  // --- MANUAL OVERRIDES ---
+  // Apply manual sides if specified by drag action
+  if (r.sourceSide === 'left') {
+    p1x = startLeft;
+    c1x = p1x - 60;
+  } else if (r.sourceSide === 'right') {
+    p1x = startRight;
+    c1x = p1x + 60;
+  }
+
+  if (r.targetSide === 'left') {
+    p2x = endLeft;
+    c2x = p2x - 60;
+  } else if (r.targetSide === 'right') {
+    p2x = endRight;
+    c2x = p2x + 60;
+  }
+
+  // Adjust self-reference loop if manual sides are same
+  if (r.fromTable === r.toTable && r.sourceSide && r.targetSide && r.sourceSide === r.targetSide) {
+    const loopOffset = 60;
+    if (r.sourceSide === 'left') {
+      c1x = startLeft - loopOffset;
+      c2x = endLeft - loopOffset;
+    } else {
+      c1x = startRight + loopOffset;
+      c2x = endRight + loopOffset;
+    }
   }
 
   return { p1x, p1y, p2x, p2y, c1x, c1y, c2x, c2y };

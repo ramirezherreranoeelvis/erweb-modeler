@@ -1,5 +1,15 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Plus, Trash2, Eye, AlertTriangle, GitMerge, Edit3, Lock, Grid } from 'lucide-react';
+import {
+  Plus,
+  Trash2,
+  Eye,
+  AlertTriangle,
+  GitMerge,
+  Edit3,
+  Lock,
+  Grid,
+  RotateCcw,
+} from 'lucide-react';
 import type {
   Table,
   Relationship,
@@ -745,6 +755,17 @@ const App = () => {
     touchDist.current = null;
   };
 
+  // New handler for initiating relationship drag
+  const handleRelPointerDown = (e: React.PointerEvent, relId: string) => {
+    e.stopPropagation();
+    // Close menu if it was open
+    setRelMenu(null);
+    // Start dragging relationship
+    setDragInfo({ isDragging: true, offset: { x: 0, y: 0 }, targetId: relId });
+    // Capture pointer to track movement
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+  };
+
   const handlePointerMove = (e: React.PointerEvent) => {
     // 1. Sidebar Resizing
     if (isResizingSidebar) {
@@ -774,6 +795,36 @@ const App = () => {
     setMousePos({ x: rawX - pan.x, y: rawY - pan.y });
 
     if (dragInfo.isDragging && dragInfo.targetId) {
+      // ** CHECK FOR RELATIONSHIP DRAGGING **
+      const draggingRel = relationships.find((r) => r.id === dragInfo.targetId);
+      if (draggingRel) {
+        const sourceTable = viewTables.find((t) => t.id === draggingRel.fromTable);
+        const targetTable = viewTables.find((t) => t.id === draggingRel.toTable);
+
+        if (sourceTable && targetTable) {
+          const sourceCenter = sourceTable.x + TABLE_WIDTH / 2;
+          const targetCenter = targetTable.x + TABLE_WIDTH / 2;
+
+          // Calculate new sides based on mouse position relative to table centers
+          const newSourceSide = x < sourceCenter ? 'left' : 'right';
+          const newTargetSide = x < targetCenter ? 'left' : 'right';
+
+          if (
+            draggingRel.sourceSide !== newSourceSide ||
+            draggingRel.targetSide !== newTargetSide
+          ) {
+            setRelationships((prev) =>
+              prev.map((r) =>
+                r.id === draggingRel.id
+                  ? { ...r, sourceSide: newSourceSide, targetSide: newTargetSide }
+                  : r,
+              ),
+            );
+          }
+        }
+        return; // Skip other dragging logic
+      }
+
       // Handle Virtual Table Dragging
       if (dragInfo.targetId.startsWith('virt_')) {
         const relId = dragInfo.targetId.replace('virt_', '');
@@ -806,7 +857,7 @@ const App = () => {
       setTempConnection(null);
     }
     // Release capture if it was captured
-    if (e.target instanceof HTMLElement && e.target.hasPointerCapture(e.pointerId)) {
+    if (e.target instanceof Element && e.target.hasPointerCapture(e.pointerId)) {
       e.target.releasePointerCapture(e.pointerId);
     }
   };
@@ -1246,6 +1297,16 @@ const App = () => {
 
   const updateRelName = (id: string, name: string) => {
     setRelationships(relationships.map((r) => (r.id === id ? { ...r, name } : r)));
+  };
+
+  const resetRelRouting = () => {
+    if (!relMenu) return;
+    setRelationships((prev) =>
+      prev.map((r) =>
+        r.id === relMenu.id ? { ...r, sourceSide: undefined, targetSide: undefined } : r,
+      ),
+    );
+    setRelMenu(null);
   };
 
   const deleteRel = () => {
@@ -1697,6 +1758,7 @@ const App = () => {
                       <g
                         key={rel.id}
                         className="pointer-events-auto cursor-pointer group"
+                        onPointerDown={(e) => handleRelPointerDown(e, rel.id)}
                         onClick={(e) => handleRelClick(e, rel.id)}
                       >
                         {/* Hit area */}
@@ -1915,6 +1977,13 @@ const App = () => {
               </button>
 
               <div className="h-[1px] bg-slate-100 dark:bg-slate-700 my-0.5"></div>
+
+              <button
+                onClick={resetRelRouting}
+                className="flex items-center gap-2 px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-xs text-slate-700 dark:text-slate-300 rounded text-left transition-colors"
+              >
+                <RotateCcw size={14} /> <span>Reset to Auto</span>
+              </button>
 
               <button
                 onClick={deleteRel}
