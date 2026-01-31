@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Plus, Trash2, Eye, AlertTriangle, GitMerge, Edit3, Lock } from 'lucide-react';
+import { Plus, Trash2, Eye, AlertTriangle, GitMerge, Edit3, Lock, Grid } from 'lucide-react';
 import type {
   Table,
   Relationship,
@@ -230,6 +230,7 @@ const App = () => {
     {
       id: 'r2',
       name: 'rel_orders_products',
+      logicalName: 'Order Details', // Initial Logical Name for the intersection
       fromTable: 't2',
       fromCol: 'c1',
       toTable: 't3',
@@ -249,6 +250,7 @@ const App = () => {
     showCardinality: true,
     showCardinalityNumeric: true,
     showRelationshipNames: true,
+    gridStyle: 'none',
     lineStyle: 'orthogonal',
   });
 
@@ -307,10 +309,13 @@ const App = () => {
         if (sourceTable && targetTable) {
           // 1. Define Intersection Table Details
           const intersectId = `virt_${rel.id}`;
-          // Use the relationship name as the table name (defaults to REL_...)
+          // Use the relationship name as the Physical table name
           const intersectName = rel.name
             ? rel.name.toUpperCase()
             : `REL_${sourceTable.name}_${targetTable.name}`;
+
+          // Use the relationship logicalName as the Logical table name, fallback to name
+          const intersectLogicalName = rel.logicalName || rel.name || 'Association';
 
           // Position it between the two tables or use stored position
           let midX = (sourceTable.x + targetTable.x) / 2 + TABLE_WIDTH / 2 - TABLE_WIDTH / 2; // Center align
@@ -376,7 +381,7 @@ const App = () => {
           physicalTables.push({
             id: intersectId,
             name: intersectName,
-            logicalName: rel.name || 'Intersection',
+            logicalName: intersectLogicalName,
             x: midX,
             y: midY,
             // Virtual tables inherit "locked" state if global is on, but generally shouldn't be draggable if logic dictates
@@ -913,8 +918,15 @@ const App = () => {
     // Handle Virtual Table Rename (Modifies Relationship)
     if (id.startsWith('virt_')) {
       const relId = id.replace('virt_', '');
+
       if (field === 'name') {
+        // Update Physical Name
         setRelationships((prev) => prev.map((r) => (r.id === relId ? { ...r, name: value } : r)));
+      } else if (field === 'logicalName') {
+        // Update Logical Name
+        setRelationships((prev) =>
+          prev.map((r) => (r.id === relId ? { ...r, logicalName: value } : r)),
+        );
       } else if (field === 'isManuallyEditable') {
         setRelationships((prev) =>
           prev.map((r) => (r.id === relId ? { ...r, isManuallyEditable: value } : r)),
@@ -1262,6 +1274,15 @@ const App = () => {
   const strokeColor = theme === 'dark' ? '#94a3b8' : '#475569';
   const gridColor = theme === 'dark' ? '#334155' : '#cbd5e1';
 
+  // Calculate background image based on gridStyle
+  const getGridBackground = () => {
+    if (viewOptions.gridStyle === 'dots')
+      return `radial-gradient(${gridColor} 1px, transparent 1px)`;
+    if (viewOptions.gridStyle === 'squares')
+      return `linear-gradient(to right, ${gridColor} 1px, transparent 1px), linear-gradient(to bottom, ${gridColor} 1px, transparent 1px)`;
+    return 'none';
+  };
+
   return (
     <div
       className={`${theme} w-full min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-200`}
@@ -1426,7 +1447,7 @@ const App = () => {
               </h3>
               <div className="space-y-2">
                 {Object.entries(viewOptions).map(([key, val]) => {
-                  if (key === 'lineStyle') return null;
+                  if (key === 'lineStyle' || key === 'gridStyle') return null;
                   return (
                     <label
                       key={key}
@@ -1450,6 +1471,24 @@ const App = () => {
                     </label>
                   );
                 })}
+              </div>
+
+              {/* Grid Style Selector */}
+              <div className="mt-4">
+                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                  <Grid size={12} /> Grid Style
+                </h3>
+                <select
+                  value={viewOptions.gridStyle}
+                  onChange={(e) =>
+                    setViewOptions({ ...viewOptions, gridStyle: e.target.value as any })
+                  }
+                  className="w-full text-xs p-1.5 border border-slate-300 dark:border-slate-600 rounded bg-slate-50 dark:bg-slate-700 text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500"
+                >
+                  <option value="none">None</option>
+                  <option value="dots">Dots</option>
+                  <option value="squares">Squares</option>
+                </select>
               </div>
 
               <div className="mt-4">
@@ -1489,8 +1528,8 @@ const App = () => {
             className="flex-1 bg-slate-50 dark:bg-slate-900 relative overflow-hidden transition-colors duration-200 touch-none"
             onPointerDown={handleCanvasPointerDown}
             style={{
-              backgroundImage: `radial-gradient(${gridColor} 1px, transparent 1px)`,
-              backgroundSize: `${20 * zoom}px ${20 * zoom}px`,
+              backgroundImage: getGridBackground(),
+              backgroundSize: `${40 * zoom}px ${40 * zoom}px`,
               backgroundPosition: `${pan.x}px ${pan.y}px`,
               cursor: isPanning
                 ? 'grabbing'

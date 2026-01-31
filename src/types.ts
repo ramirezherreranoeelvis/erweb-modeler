@@ -35,6 +35,7 @@ export interface Table {
 export interface Relationship {
   id: string;
   name: string;
+  logicalName?: string; // New field for the logical name of the relationship/intersection table
   fromTable: string;
   fromCol: string;
   toTable: string;
@@ -59,6 +60,7 @@ export interface ViewOptions {
   showCardinality: boolean;
   showCardinalityNumeric: boolean;
   showRelationshipNames: boolean;
+  gridStyle: 'none' | 'dots' | 'squares';
   lineStyle: 'curved' | 'orthogonal';
 }
 
