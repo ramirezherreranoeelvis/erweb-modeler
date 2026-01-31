@@ -12,7 +12,7 @@ interface PropertiesPanelProps {
   onDeleteColumn: (tableId: string, colId: string) => void;
   onMoveColumn: (tableId: string, fromIndex: number, toIndex: number) => void;
   width: number;
-  onResizeStart: () => void;
+  onWidthChange: (width: number) => void;
 }
 
 const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
@@ -25,7 +25,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   onDeleteColumn,
   onMoveColumn,
   width,
-  onResizeStart,
+  onWidthChange,
 }) => {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
@@ -37,10 +37,20 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       {/* Resize Handle - Hidden on Mobile */}
       <div
         className="hidden md:block absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-blue-400 dark:hover:bg-blue-600 transition-colors z-50 -ml-0.5"
-        onMouseDown={(e) => {
+        onPointerDown={(e) => {
           e.stopPropagation();
           e.preventDefault();
-          onResizeStart();
+          e.currentTarget.setPointerCapture(e.pointerId);
+        }}
+        onPointerMove={(e) => {
+          if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+            const newWidth = Math.max(300, window.innerWidth - e.clientX);
+            onWidthChange(newWidth);
+          }
+        }}
+        onPointerUp={(e) => {
+          e.stopPropagation();
+          e.currentTarget.releasePointerCapture(e.pointerId);
         }}
       />
 
@@ -199,21 +209,21 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                       <div className="flex flex-1 justify-end items-center gap-1.5 pb-0.5">
                         <label
                           className={`flex flex-col items-center group/chk ${col.isIdentity || col.isPk ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
-                          title="Allow Null"
+                          title="Not Null"
                         >
                           <span className="text-[8px] font-bold text-slate-400 mb-0.5 group-hover/chk:text-blue-500">
                             NN
                           </span>
                           <input
                             type="checkbox"
-                            checked={col.isNullable}
+                            checked={!col.isNullable}
                             disabled={col.isIdentity || col.isPk}
                             onChange={(e) =>
                               onUpdateColumn(
                                 selectedTable.id,
                                 col.id,
                                 'isNullable',
-                                e.target.checked,
+                                !e.target.checked,
                               )
                             }
                             className={`w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-0 dark:bg-slate-700 ${col.isIdentity || col.isPk ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800' : 'cursor-pointer'}`}

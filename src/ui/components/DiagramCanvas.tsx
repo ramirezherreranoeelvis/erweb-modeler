@@ -42,7 +42,6 @@ interface DiagramCanvasProps {
   globalEditable: boolean;
 
   // UI Setters
-  setSidebarWidth: (w: number) => void;
   setSelectedId: (id: string | null) => void;
   setIsPropertiesPanelOpen: (isOpen: boolean) => void;
   setRelMenu: (menu: { id: string; x: number; y: number } | null) => void;
@@ -82,7 +81,6 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
   viewMode,
   theme,
   globalEditable,
-  setSidebarWidth,
   setSelectedId,
   setIsPropertiesPanelOpen,
   setRelMenu,
@@ -107,7 +105,6 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
     targetId: null,
   });
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [isResizingSidebar, setIsResizingSidebar] = useState(false);
 
   // Connection State
   const [isConnecting, setIsConnecting] = useState(false);
@@ -374,21 +371,14 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    // 1. Sidebar Resizing
-    if (isResizingSidebar) {
-      const newWidth = Math.max(300, window.innerWidth - e.clientX);
-      setSidebarWidth(newWidth);
-      return;
-    }
-
     if (!mainRef.current) return;
 
-    // 2. Canvas Panning
+    // 1. Canvas Panning
     if (isPanning) {
       setPan((prev) => ({ x: prev.x + e.movementX, y: prev.y + e.movementY }));
     }
 
-    // 3. Coordinate Calculation
+    // 2. Coordinate Calculation
     const canvasRect = mainRef.current.getBoundingClientRect();
     const rawX = e.clientX - canvasRect.left;
     const rawY = e.clientY - canvasRect.top;
@@ -398,7 +388,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
 
     setMousePos({ x: rawX - pan.x, y: rawY - pan.y });
 
-    // 4. Dragging Logic
+    // 3. Dragging Logic
     if (dragInfo.isDragging && dragInfo.targetId) {
       // Relationship Dragging (Relocating lines)
       const draggingRel = relationships.find((r) => r.id === dragInfo.targetId);
@@ -454,7 +444,6 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
 
   const handlePointerUp = (e: React.PointerEvent) => {
     setIsPanning(false);
-    setIsResizingSidebar(false);
     setDragInfo({ isDragging: false, offset: { x: 0, y: 0 }, targetId: null });
     if (isConnecting) {
       setIsConnecting(false);

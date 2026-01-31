@@ -167,7 +167,6 @@ const App = () => {
             viewMode={viewMode}
             theme={theme}
             globalEditable={globalEditable}
-            setSidebarWidth={setSidebarWidth}
             setSelectedId={setSelectedId}
             setIsPropertiesPanelOpen={setIsPropertiesPanelOpen}
             setRelMenu={setRelMenu}
@@ -240,9 +239,7 @@ const App = () => {
             <div className="fixed inset-0 z-40 md:static md:z-auto md:w-auto bg-white/50 dark:bg-black/50 backdrop-blur-sm md:bg-transparent md:backdrop-blur-none flex flex-col justify-end md:block">
               <PropertiesPanel
                 width={sidebarWidth}
-                onResizeStart={() => {
-                  /* Resize handled in DiagramsCanvas but panel needs to receive start event if we drag border? Currently resize is on DiagramCanvas side mostly or handled by App state passed down */
-                }}
+                onWidthChange={setSidebarWidth}
                 selectedTable={selectedTable}
                 relationships={relationships}
                 onClose={() => setIsPropertiesPanelOpen(false)}
