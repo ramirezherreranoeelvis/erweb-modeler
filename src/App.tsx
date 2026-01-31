@@ -312,9 +312,14 @@ const App = () => {
             ? rel.name.toUpperCase()
             : `REL_${sourceTable.name}_${targetTable.name}`;
 
-          // Position it between the two tables
-          const midX = (sourceTable.x + targetTable.x) / 2 + TABLE_WIDTH / 2 - TABLE_WIDTH / 2; // Center align
-          const midY = (sourceTable.y + targetTable.y) / 2;
+          // Position it between the two tables or use stored position
+          let midX = (sourceTable.x + targetTable.x) / 2 + TABLE_WIDTH / 2 - TABLE_WIDTH / 2; // Center align
+          let midY = (sourceTable.y + targetTable.y) / 2;
+
+          if (rel.x !== undefined && rel.y !== undefined) {
+            midX = rel.x;
+            midY = rel.y;
+          }
 
           // 2. Derive Columns from Source/Target PKs
           const sourcePks = sourceTable.columns.filter((c) => c.isPk);
@@ -764,9 +769,19 @@ const App = () => {
     setMousePos({ x: rawX - pan.x, y: rawY - pan.y });
 
     if (dragInfo.isDragging && dragInfo.targetId) {
-      // Do not allow dragging virtual tables
-      if (dragInfo.targetId.startsWith('virt_')) return;
+      // Handle Virtual Table Dragging
+      if (dragInfo.targetId.startsWith('virt_')) {
+        const relId = dragInfo.targetId.replace('virt_', '');
+        const newX = x - dragInfo.offset.x;
+        const newY = y - dragInfo.offset.y;
 
+        setRelationships((prev) =>
+          prev.map((r) => (r.id === relId ? { ...r, x: newX, y: newY } : r)),
+        );
+        return;
+      }
+
+      // Normal Table Dragging
       setTables(
         tables.map((t) =>
           t.id === dragInfo.targetId
@@ -796,7 +811,9 @@ const App = () => {
     // e.preventDefault(); // Prevent scrolling on touch
     setRelMenu(null);
 
-    const targetTable = tables.find((t) => t.id === id);
+    // Use viewTables because we might be clicking a virtual table
+    const targetTable = viewTables.find((t) => t.id === id);
+
     // If Global Edit is On, OR specific table is manually editable -> Lock Dragging (Do NOT set dragInfo)
     const isLocked = globalEditable || (targetTable && targetTable.isManuallyEditable);
 
@@ -1783,17 +1800,19 @@ const App = () => {
             </button>
           </div>
 
-          {selectedId && !selectedId.startsWith('virt_') && (
-            <div className="md:hidden fixed bottom-6 left-6 z-40">
-              <button
-                onClick={deleteTable}
-                className="w-14 h-14 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
-                title="Delete Selected Table"
-              >
-                <Trash2 size={24} />
-              </button>
-            </div>
-          )}
+          {selectedId &&
+            !selectedId.startsWith('virt_') &&
+            (globalEditable || selectedTable?.isManuallyEditable) && (
+              <div className="md:hidden fixed bottom-6 left-6 z-40">
+                <button
+                  onClick={deleteTable}
+                  className="w-14 h-14 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
+                  title="Delete Selected Table"
+                >
+                  <Trash2 size={24} />
+                </button>
+              </div>
+            )}
 
           {relMenu && (
             <div
