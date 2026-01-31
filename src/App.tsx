@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Plus, Trash2, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import type {
   Table,
   Relationship,
@@ -9,21 +9,16 @@ import type {
   WarningData,
   Column,
 } from './ui/types';
-import {
-  generateId,
-  calculatePath,
-  getConnectorPoints,
-  getCurveMidpoint,
-  TABLE_WIDTH,
-} from './utils/geometry';
+import { generateId, TABLE_WIDTH } from './utils/geometry';
 import Toolbar from './ui/components/Toolbar';
 import Sidebar from './ui/components/Sidebar';
-import TableNode from './ui/components/table-nodes';
 import PropertiesPanel from './ui/components/PropertiesPanel';
+import WarningModal from './ui/components/WarningModal';
+import DiagramCanvas from './ui/components/DiagramCanvas';
+import RelationshipMenu from './ui/components/RelationshipMenu';
 
 const App = () => {
   // --- Theme State ---
-  // Initialize based on system preference to avoid mismatches
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (
       typeof window !== 'undefined' &&
@@ -35,14 +30,11 @@ const App = () => {
     return 'light';
   });
 
-  // Listen for system theme changes
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e: MediaQueryListEvent) => {
       setTheme(e.matches ? 'dark' : 'light');
     };
-
-    // Safely add listener for various browser versions
     if (mediaQuery.addEventListener) {
       mediaQuery.addEventListener('change', handleChange);
       return () => mediaQuery.removeEventListener('change', handleChange);
@@ -231,7 +223,7 @@ const App = () => {
     {
       id: 'r2',
       name: 'rel_orders_products',
-      logicalName: 'Order Details', // Initial Logical Name for the intersection
+      logicalName: 'Order Details',
       fromTable: 't2',
       fromCol: 'c1',
       toTable: 't3',
@@ -257,7 +249,7 @@ const App = () => {
 
   const [viewMode, setViewMode] = useState<string>('physical');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [isPropertiesPanelOpen, setIsPropertiesPanelOpen] = useState(false); // New state to control visibility
+  const [isPropertiesPanelOpen, setIsPropertiesPanelOpen] = useState(false);
 
   const [zoom, setZoom] = useState<number>(1);
   const [dragInfo, setDragInfo] = useState<DragInfo>({
@@ -266,7 +258,6 @@ const App = () => {
     targetId: null,
   });
 
-  // New Global Edit Mode State
   const [globalEditable, setGlobalEditable] = useState(false);
 
   // Panning & Layout State
@@ -274,31 +265,25 @@ const App = () => {
   const [isPanning, setIsPanning] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(300);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile sidebar toggle
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Main Canvas Ref for coordinate calculations
   const mainRef = useRef<HTMLDivElement>(null);
 
-  // Connecting Lines State
   const [isConnecting, setIsConnecting] = useState(false);
   const [tempConnection, setTempConnection] = useState<TempConnection | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  // Modals & Menus
   const [relMenu, setRelMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [warningModal, setWarningModal] = useState<WarningData | null>(null);
 
-  // Touch Zoom Refs
   const touchDist = useRef<number | null>(null);
 
   // --- Derived State for Physical/Logical Views ---
   const { viewTables, viewRelationships } = useMemo(() => {
-    // If Logical View: Show everything as is
     if (viewMode === 'logical') {
       return { viewTables: tables, viewRelationships: relationships };
     }
 
-    // If Physical View: Transform N:M relationships into Intersection Tables
     const physicalTables = [...tables];
     const physicalRels: Relationship[] = [];
 
@@ -308,29 +293,22 @@ const App = () => {
         const targetTable = tables.find((t) => t.id === rel.toTable);
 
         if (sourceTable && targetTable) {
-          // 1. Define Intersection Table Details
           const intersectId = `virt_${rel.id}`;
-          // Use the relationship name as the Physical table name
           const intersectName = rel.name
             ? rel.name.toUpperCase()
             : `REL_${sourceTable.name}_${targetTable.name}`;
-          
-          // Use the relationship logicalName as the Logical table name, fallback to name
           const intersectLogicalName = rel.logicalName || rel.name || 'Association';
 
-          // Position it between the two tables or use stored position
-          let midX = (sourceTable.x + targetTable.x) / 2 + TABLE_WIDTH / 2 - TABLE_WIDTH / 2; // Center align
+          let midX = (sourceTable.x + targetTable.x) / 2 + TABLE_WIDTH / 2 - TABLE_WIDTH / 2;
           let midY = (sourceTable.y + targetTable.y) / 2;
 
           if (rel.x !== undefined && rel.y !== undefined) {
-             midX = rel.x;
-             midY = rel.y;
+            midX = rel.x;
+            midY = rel.y;
           }
 
-          // 2. Derive Columns from Source/Target PKs
           const sourcePks = sourceTable.columns.filter((c) => c.isPk);
           const targetPks = targetTable.columns.filter((c) => c.isPk);
-
           const newColumns: Column[] = [];
 
           const getVirtualName = (colId: string, defaultName: string) => {
@@ -340,25 +318,22 @@ const App = () => {
             return defaultName;
           };
 
-          // Add Source PKs to Intersection
           sourcePks.forEach((pk) => {
             const virtColId = `${intersectId}_src_${pk.id}`;
             newColumns.push({
               ...pk,
               id: virtColId,
               name: getVirtualName(virtColId, pk.name),
-              isPk: true, // Composite PK
+              isPk: true,
               isFk: true,
-              isIdentity: false, // Lose identity in intersection
+              isIdentity: false,
               isNullable: false,
               isUnique: false,
             });
           });
 
-          // Add Target PKs to Intersection
           targetPks.forEach((pk) => {
             const virtColId = `${intersectId}_tgt_${pk.id}`;
-            // Handle naming collisions if not manually renamed
             let defaultName = pk.name;
             const isManual = rel.virtualColNames && rel.virtualColNames[virtColId];
 
@@ -370,7 +345,7 @@ const App = () => {
               ...pk,
               id: virtColId,
               name: getVirtualName(virtColId, defaultName),
-              isPk: true, // Composite PK
+              isPk: true,
               isFk: true,
               isIdentity: false,
               isNullable: false,
@@ -378,20 +353,16 @@ const App = () => {
             });
           });
 
-          // Push Virtual Table
           physicalTables.push({
             id: intersectId,
             name: intersectName,
             logicalName: intersectLogicalName,
             x: midX,
             y: midY,
-            // Virtual tables inherit "locked" state if global is on, but generally shouldn't be draggable if logic dictates
             isManuallyEditable: rel.isManuallyEditable,
             columns: newColumns,
           });
 
-          // 3. Create 1:N Relationships linking to the Intersection Table
-          // Source -> Intersection
           sourcePks.forEach((pk) => {
             const targetCol = newColumns.find((c) => c.id === `${intersectId}_src_${pk.id}`);
             if (targetCol) {
@@ -407,7 +378,6 @@ const App = () => {
             }
           });
 
-          // Target -> Intersection
           targetPks.forEach((pk) => {
             const targetCol = newColumns.find((c) => c.id === `${intersectId}_tgt_${pk.id}`);
             if (targetCol) {
@@ -424,7 +394,6 @@ const App = () => {
           });
         }
       } else {
-        // Not N:M, render normally
         physicalRels.push(rel);
       }
     });
@@ -445,7 +414,6 @@ const App = () => {
     const sourceCol = sourceTable?.columns.find((c) => c.id === sourceCId);
     const targetCol = targetTable?.columns.find((c) => c.id === targetCId);
 
-    // Naming convention: fk_table1_col1_table2_col2
     const name =
       `fk_${sourceTable?.name}_${sourceCol?.name}_${targetTable?.name}_${targetCol?.name}`.toLowerCase();
 
@@ -460,7 +428,6 @@ const App = () => {
     };
     setRelationships((prev) => [...prev, newRel]);
 
-    // Sync Child Data
     if (!sourceCol) return;
 
     setTables((prevTables) =>
@@ -528,15 +495,10 @@ const App = () => {
     side: 'left' | 'right',
   ) => {
     e.stopPropagation();
-    // Do NOT prevent default here to allow pointer capture if needed, though stopPropagation is key
-    // e.preventDefault();
     setRelMenu(null);
 
-    // Initial start position (approximate, refined by geometry logic)
-    const table = viewTables.find((t) => t.id === tableId); // Use viewTables to support connecting to real tables
+    const table = viewTables.find((t) => t.id === tableId);
     if (!table) return;
-
-    // Prevent connecting from virtual tables (optional constraint for simplicity)
     if (tableId.startsWith('virt_')) return;
 
     setIsConnecting(true);
@@ -544,11 +506,10 @@ const App = () => {
       sourceTableId: tableId,
       sourceColId: colId,
       startX: table.x + (side === 'right' ? 280 : 0),
-      startY: table.y + 40, // simplified, will update on render
+      startY: table.y + 40,
       side,
     });
 
-    // Capture the pointer on the canvas to track movement even if we leave the node
     if (mainRef.current) {
       mainRef.current.setPointerCapture(e.pointerId);
     }
@@ -562,7 +523,6 @@ const App = () => {
       const sourceCol = sourceTable?.columns.find((c) => c.id === tempConnection.sourceColId);
       const targetTable = tables.find((t) => t.id === targetTableId);
 
-      // Prevent dropping on virtual tables
       if (targetTableId.startsWith('virt_')) {
         setIsConnecting(false);
         setTempConnection(null);
@@ -636,7 +596,6 @@ const App = () => {
         return;
       }
 
-      // Prevent connecting to virtual tables
       if (targetTableId.startsWith('virt_') || sourceTId.startsWith('virt_')) {
         setIsConnecting(false);
         setTempConnection(null);
@@ -705,21 +664,15 @@ const App = () => {
   };
 
   const handleCanvasPointerDown = (e: React.PointerEvent) => {
-    // Only handle primary pointer (left mouse/touch)
     if (e.isPrimary && e.button === 0) {
-      // If we clicked on the empty canvas, deselect everything
       setSelectedId(null);
-      setIsPropertiesPanelOpen(false); // Close panel on canvas click
+      setIsPropertiesPanelOpen(false);
       setRelMenu(null);
-
-      // Start panning
       setIsPanning(true);
-      // Capture pointer to ensure we get moves even outside canvas
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     }
   };
 
-  // --- Pinch to Zoom Logic ---
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       const d = Math.hypot(
@@ -746,84 +699,75 @@ const App = () => {
     touchDist.current = null;
   };
 
-  // New handler for initiating relationship drag
   const handleRelPointerDown = (e: React.PointerEvent, relId: string) => {
     e.stopPropagation();
-    // Close menu if it was open
     setRelMenu(null);
-    // Start dragging relationship
     setDragInfo({ isDragging: true, offset: { x: 0, y: 0 }, targetId: relId });
-    // Capture pointer to track movement
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    // 1. Sidebar Resizing
     if (isResizingSidebar) {
       const newWidth = Math.max(300, window.innerWidth - e.clientX);
       setSidebarWidth(newWidth);
       return;
     }
 
-    // Only process canvas interactions if we have the ref
     if (!mainRef.current) return;
 
-    // 2. Canvas Panning
     if (isPanning) {
       setPan((prev) => ({ x: prev.x + e.movementX, y: prev.y + e.movementY }));
     }
 
-    // 3. Coordinate Calculation (Account for Pan & Zoom)
-    // Use mainRef to get coordinate relative to the canvas, regardless of where mouse is
     const canvasRect = mainRef.current.getBoundingClientRect();
     const rawX = e.clientX - canvasRect.left;
     const rawY = e.clientY - canvasRect.top;
 
-    // IMPORTANT: Subtract pan offset before dividing by zoom
     const x = (rawX - pan.x) / zoom;
     const y = (rawY - pan.y) / zoom;
 
     setMousePos({ x: rawX - pan.x, y: rawY - pan.y });
 
     if (dragInfo.isDragging && dragInfo.targetId) {
-      // ** CHECK FOR RELATIONSHIP DRAGGING **
-      const draggingRel = relationships.find(r => r.id === dragInfo.targetId);
+      const draggingRel = relationships.find((r) => r.id === dragInfo.targetId);
       if (draggingRel) {
-        const sourceTable = viewTables.find(t => t.id === draggingRel.fromTable);
-        const targetTable = viewTables.find(t => t.id === draggingRel.toTable);
+        const sourceTable = viewTables.find((t) => t.id === draggingRel.fromTable);
+        const targetTable = viewTables.find((t) => t.id === draggingRel.toTable);
 
         if (sourceTable && targetTable) {
-            const sourceCenter = sourceTable.x + TABLE_WIDTH / 2;
-            const targetCenter = targetTable.x + TABLE_WIDTH / 2;
-            
-            // Calculate new sides based on mouse position relative to table centers
-            const newSourceSide = x < sourceCenter ? 'left' : 'right';
-            const newTargetSide = x < targetCenter ? 'left' : 'right';
-            
-            if (draggingRel.sourceSide !== newSourceSide || draggingRel.targetSide !== newTargetSide) {
-                setRelationships(prev => prev.map(r => 
-                    r.id === draggingRel.id 
-                    ? { ...r, sourceSide: newSourceSide, targetSide: newTargetSide } 
-                    : r
-                ));
-            }
+          const sourceCenter = sourceTable.x + TABLE_WIDTH / 2;
+          const targetCenter = targetTable.x + TABLE_WIDTH / 2;
+
+          const newSourceSide = x < sourceCenter ? 'left' : 'right';
+          const newTargetSide = x < targetCenter ? 'left' : 'right';
+
+          if (
+            draggingRel.sourceSide !== newSourceSide ||
+            draggingRel.targetSide !== newTargetSide
+          ) {
+            setRelationships((prev) =>
+              prev.map((r) =>
+                r.id === draggingRel.id
+                  ? { ...r, sourceSide: newSourceSide, targetSide: newTargetSide }
+                  : r,
+              ),
+            );
+          }
         }
-        return; // Skip other dragging logic
+        return;
       }
 
-      // Handle Virtual Table Dragging
       if (dragInfo.targetId.startsWith('virt_')) {
-         const relId = dragInfo.targetId.replace('virt_', '');
-         const newX = x - dragInfo.offset.x;
-         const newY = y - dragInfo.offset.y;
-         
-         setRelationships(prev => prev.map(r => 
-           r.id === relId ? { ...r, x: newX, y: newY } : r
-         ));
-         return; 
+        const relId = dragInfo.targetId.replace('virt_', '');
+        const newX = x - dragInfo.offset.x;
+        const newY = y - dragInfo.offset.y;
+
+        setRelationships((prev) =>
+          prev.map((r) => (r.id === relId ? { ...r, x: newX, y: newY } : r)),
+        );
+        return;
       }
 
-      // Normal Table Dragging
       setTables(
         tables.map((t) =>
           t.id === dragInfo.targetId
@@ -842,7 +786,6 @@ const App = () => {
       setIsConnecting(false);
       setTempConnection(null);
     }
-    // Release capture if it was captured
     if (e.target instanceof Element && e.target.hasPointerCapture(e.pointerId)) {
       e.target.releasePointerCapture(e.pointerId);
     }
@@ -850,39 +793,25 @@ const App = () => {
 
   const handleTablePointerDown = (e: React.PointerEvent, id: string) => {
     e.stopPropagation();
-    // e.preventDefault(); // Prevent scrolling on touch
     setRelMenu(null);
-
-    // Use viewTables because we might be clicking a virtual table
     const targetTable = viewTables.find((t) => t.id === id);
-    
-    // If Global Edit Mode is On, OR specific table is manually editable -> Lock Dragging (Do NOT set dragInfo)
     const isLocked = globalEditable || (targetTable && targetTable.isManuallyEditable);
 
     if (isLocked) {
-      // Just select it, don't drag.
-      // IMPORTANT: In Edit Mode, we DO NOT open the properties panel automatically on click.
-      // This allows the user to interact with the table (e.g. drag columns) without the panel popping up.
       setSelectedId(id);
       return;
     }
 
     const rect = e.currentTarget.getBoundingClientRect();
-    // Adjust mouse offset calculation to account for pan
     const offsetX = (e.clientX - rect.left) / zoom;
     const offsetY = (e.clientY - rect.top) / zoom;
 
     setDragInfo({ isDragging: true, offset: { x: offsetX, y: offsetY }, targetId: id });
-
-    // Select both real and virtual tables to allow property editing
     setSelectedId(id);
 
-    // Only auto-open properties panel on Desktop. On mobile, user must click the "Config" button.
     if (window.innerWidth >= 768) {
       setIsPropertiesPanelOpen(true);
     }
-
-    // Capture pointer for table dragging
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
 
@@ -893,14 +822,9 @@ const App = () => {
 
   // --- CRUD Operations ---
   const addTable = () => {
-    // Close sidebar on mobile when adding table
     setIsSidebarOpen(false);
-
-    // Center new table in the current view
-    // View center relative to canvas origin = (-pan.x + containerWidth/2) / zoom
-    const containerWidth = window.innerWidth - (selectedId ? sidebarWidth : 0) - 224; // approx sidebar widths
+    const containerWidth = window.innerWidth - (selectedId ? sidebarWidth : 0) - 224;
     const containerHeight = window.innerHeight - 56;
-
     const centerX = (-pan.x + containerWidth / 2) / zoom;
     const centerY = (-pan.y + containerHeight / 2) / zoom;
 
@@ -915,7 +839,7 @@ const App = () => {
       id: generateId(),
       name: newName,
       logicalName: 'New Entity',
-      x: centerX - 140, // Half table width
+      x: centerX - 140,
       y: centerY - 100,
       isManuallyEditable: false,
       columns: [
@@ -935,13 +859,12 @@ const App = () => {
     };
     setTables([...tables, newTable]);
     setSelectedId(newTable.id);
-    // Open properties panel for new table
     setIsPropertiesPanelOpen(true);
   };
 
   const deleteTable = () => {
     if (!selectedId) return;
-    if (selectedId.startsWith('virt_')) return; // Cannot delete virtual table directly (must delete relationship)
+    if (selectedId.startsWith('virt_')) return;
 
     setTables(tables.filter((t) => t.id !== selectedId));
     setRelationships(
@@ -952,16 +875,15 @@ const App = () => {
   };
 
   const updateTable = (id: string, field: string, value: any) => {
-    // Handle Virtual Table Rename (Modifies Relationship)
     if (id.startsWith('virt_')) {
       const relId = id.replace('virt_', '');
-      
+
       if (field === 'name') {
-        // Update Physical Name
         setRelationships((prev) => prev.map((r) => (r.id === relId ? { ...r, name: value } : r)));
       } else if (field === 'logicalName') {
-        // Update Logical Name
-        setRelationships((prev) => prev.map((r) => (r.id === relId ? { ...r, logicalName: value } : r)));
+        setRelationships((prev) =>
+          prev.map((r) => (r.id === relId ? { ...r, logicalName: value } : r)),
+        );
       } else if (field === 'isManuallyEditable') {
         setRelationships((prev) =>
           prev.map((r) => (r.id === relId ? { ...r, isManuallyEditable: value } : r)),
@@ -970,7 +892,6 @@ const App = () => {
       return;
     }
 
-    // Enforce Unique Table Name
     if (field === 'name') {
       const nameExists = tables.some(
         (t) => t.id !== id && t.name.toLowerCase() === value.toLowerCase(),
@@ -982,7 +903,6 @@ const App = () => {
   };
 
   const addColumn = (tableId: string) => {
-    // PROMOTION LOGIC: If adding column to virtual table, convert to real table
     if (tableId.startsWith('virt_')) {
       promoteVirtualTable(tableId);
       return;
@@ -1018,7 +938,6 @@ const App = () => {
     );
   };
 
-  // Function to promote a virtual N:M table to a real Entity
   const promoteVirtualTable = (virtId: string) => {
     const virtualTable = viewTables.find((t) => t.id === virtId);
     if (!virtualTable) return;
@@ -1027,37 +946,30 @@ const App = () => {
     const rel = relationships.find((r) => r.id === relId);
     if (!rel) return;
 
-    // 1. Create Real Table
     const newTableId = generateId();
     const newTable: Table = {
       ...virtualTable,
       id: newTableId,
       isManuallyEditable: false,
-      // Clone columns with new IDs to avoid conflicts, but keep track of mapping
       columns: virtualTable.columns.map(
         (c) =>
           ({
             ...c,
             id: generateId(),
-            _oldId: c.id, // Temporary property to map relationships
+            _oldId: c.id,
           }) as any,
       ),
     };
 
-    // 2. Create Real Relationships (1:N) based on existing virtual ones
     const newRels: Relationship[] = [];
-
-    // Find relationships connecting to the virtual table from viewRelationships
     const connectedRels = viewRelationships.filter((r) => r.toTable === virtId);
 
     connectedRels.forEach((virtRel) => {
-      // Find which column in the new table corresponds to the virtual FK
       const newCol = newTable.columns.find((c: any) => c._oldId === virtRel.toCol);
-
       if (newCol) {
         newRels.push({
           id: generateId(),
-          name: virtRel.name, // Preserve generated name
+          name: virtRel.name,
           fromTable: virtRel.fromTable,
           fromCol: virtRel.fromCol,
           toTable: newTableId,
@@ -1067,10 +979,8 @@ const App = () => {
       }
     });
 
-    // Clean up temporary property
     newTable.columns.forEach((c: any) => delete c._oldId);
 
-    // 3. Add the "New Column" that triggered this promotion
     const extraCol: Column = {
       id: generateId(),
       name: 'new_col',
@@ -1085,12 +995,8 @@ const App = () => {
     };
     newTable.columns.push(extraCol);
 
-    // 4. Update State: Add Table, Add New Rels, Remove Old N:M Rel
     setTables((prev) => [...prev, newTable]);
-    setRelationships((prev) => [
-      ...prev.filter((r) => r.id !== relId), // Remove the N:M relationship
-      ...newRels,
-    ]);
+    setRelationships((prev) => [...prev.filter((r) => r.id !== relId), ...newRels]);
     setSelectedId(newTableId);
     setIsPropertiesPanelOpen(true);
   };
@@ -1108,7 +1014,6 @@ const App = () => {
   };
 
   const updateColumn = (tableId: string, colId: string, field: string, value: any) => {
-    // Handle Virtual Table Column Rename
     if (tableId.startsWith('virt_')) {
       const relId = tableId.replace('virt_', '');
       if (field === 'name') {
@@ -1130,7 +1035,6 @@ const App = () => {
       return;
     }
 
-    // Enforce Unique Column Name
     if (field === 'name') {
       const table = tables.find((t) => t.id === tableId);
       if (table) {
@@ -1172,22 +1076,16 @@ const App = () => {
     setTimeout(() => {
       if (updatedColumnData) {
         propagateColumnChanges(tableId, colId, updatedColumnData);
-
-        // Reactive Logic for Relationships
         if (updatedColumnData.isFk) {
           setRelationships((prev) =>
             prev.map((r) => {
-              // Only if this relationship targets this column
               if (r.toTable === tableId && r.toCol === colId) {
-                // Case 1: Toggling Unique (1:1 <-> 1:N)
                 if (field === 'isUnique') {
-                  // If turning ON unique: check if nullable to decide between 1:1 and 1:0..1
                   if (value === true)
                     return {
                       ...r,
                       type: updatedColumnData!.isNullable ? '1:0..1' : '1:1',
                     };
-                  // If turning OFF unique: check if nullable to decide between 1:N and 1:0..N
                   else
                     return {
                       ...r,
@@ -1195,17 +1093,13 @@ const App = () => {
                     };
                 }
 
-                // Case 2: Toggling Nullable (1:N <-> 1:0..N) or (1:1 <-> 1:0..1)
                 if (field === 'isNullable') {
-                  // If turning ON Nullable
                   if (value === true) {
                     return {
                       ...r,
                       type: updatedColumnData!.isUnique ? '1:0..1' : '1:0..N',
                     };
-                  }
-                  // If turning OFF Nullable
-                  else {
+                  } else {
                     return {
                       ...r,
                       type: updatedColumnData!.isUnique ? '1:1' : '1:N',
@@ -1222,7 +1116,6 @@ const App = () => {
   };
 
   const deleteColumn = (tableId: string, colId: string) => {
-    // If virtual, maybe prevent or promote? For now, prevent.
     if (tableId.startsWith('virt_')) return;
 
     setTables(
@@ -1235,31 +1128,24 @@ const App = () => {
 
   const handleRelClick = (e: React.MouseEvent, relId: string) => {
     e.stopPropagation();
-    // Do not allow opening menu for virtual relationships generated by N:M view
     if (relId.startsWith('virt_')) return;
     setRelMenu({ id: relId, x: e.clientX, y: e.clientY });
   };
 
   const updateRelType = (type: any) => {
     if (!relMenu) return;
-
-    // Find the current relationship
     const rel = relationships.find((r) => r.id === relMenu.id);
     if (!rel) return;
 
-    // Update the relationship type
     setRelationships(relationships.map((r) => (r.id === relMenu.id ? { ...r, type } : r)));
 
-    // Automatically toggle Unique and Nullable constraints on the target column
     if (type === '1:1' || type === '1:N' || type === '1:0..N' || type === '1:0..1') {
       setTables((prevTables) =>
         prevTables.map((t) => {
-          // Find target table
           if (t.id === rel.toTable) {
             return {
               ...t,
               columns: t.columns.map((c) => {
-                // Find target column
                 if (c.id === rel.toCol) {
                   return {
                     ...c,
@@ -1275,7 +1161,6 @@ const App = () => {
         }),
       );
     }
-
     setRelMenu(null);
   };
 
@@ -1315,16 +1200,11 @@ const App = () => {
 
   const selectedTable = viewTables.find((t) => t.id === selectedId);
 
-  // SVG Colors based on theme
-  const strokeColor = theme === 'dark' ? '#94a3b8' : '#475569';
-  const gridColor = theme === 'dark' ? '#334155' : '#cbd5e1';
-
-  // Calculate background image based on gridStyle
-  const getGridBackground = () => {
-    if (viewOptions.gridStyle === 'dots') return `radial-gradient(${gridColor} 1px, transparent 1px)`;
-    if (viewOptions.gridStyle === 'squares') return `linear-gradient(to right, ${gridColor} 1px, transparent 1px), linear-gradient(to bottom, ${gridColor} 1px, transparent 1px)`;
-    return 'none';
-  };
+  // Active Relationship for Menu
+  const activeRel = useMemo(
+    () => (relMenu ? relationships.find((r) => r.id === relMenu.id) : null),
+    [relMenu, relationships],
+  );
 
   return (
     <div
@@ -1333,86 +1213,27 @@ const App = () => {
       <div
         className="flex flex-col h-screen w-full bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans overflow-hidden transition-colors duration-200"
         onClick={() => setRelMenu(null)}
-        // Switched to Pointer Events for consistent mobile/desktop interaction
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        // Add onPointerCancel to handle interruptions (like scrolling on touch)
         onPointerCancel={handlePointerUp}
-        // Touch handlers for pinch-to-zoom
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Warning Modal */}
-        {warningModal && warningModal.isOpen && (
-          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
-              <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex items-center gap-3 bg-amber-50 dark:bg-amber-900/30 rounded-t-lg">
-                <div className="bg-amber-100 dark:bg-amber-800 p-2 rounded-full text-amber-600 dark:text-amber-400">
-                  <AlertTriangle size={24} />
-                </div>
-                <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100">
-                  Integrity Warning
-                </h3>
-              </div>
-              <div className="p-5 space-y-4">
-                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                  The target column{' '}
-                  <span className="font-bold text-slate-800 dark:text-white">
-                    {warningModal.pendingData.targetCol.name}
-                  </span>{' '}
-                  has different properties than source{' '}
-                  <span className="font-bold text-slate-800 dark:text-white">
-                    {warningModal.pendingData.sourceCol.name}
-                  </span>
-                  .
-                </p>
-                <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded border border-slate-200 dark:border-slate-700 text-xs font-mono space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Source:</span>
-                    <span className="text-blue-600 dark:text-blue-400 font-bold">
-                      {warningModal.pendingData.sourceCol.type}(
-                      {warningModal.pendingData.sourceCol.length})
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Target:</span>
-                    <span className="text-red-500 font-bold line-through">
-                      {warningModal.pendingData.targetCol.type}(
-                      {warningModal.pendingData.targetCol.length})
-                    </span>
-                  </div>
-                </div>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Continuing will{' '}
-                  <strong className="text-amber-600 dark:text-amber-400">overwrite</strong> target
-                  properties.
-                </p>
-              </div>
-              <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-b-lg flex justify-end gap-3 border-t border-slate-100 dark:border-slate-700">
-                <button
-                  onClick={() => setWarningModal(null)}
-                  className="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    applyConnection(
-                      warningModal.pendingData.sourceTId,
-                      warningModal.pendingData.sourceCId,
-                      warningModal.pendingData.targetTId,
-                      warningModal.pendingData.targetCId,
-                    );
-                    setWarningModal(null);
-                  }}
-                  className="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded shadow-sm transition-colors"
-                >
-                  Sync & Connect
-                </button>
-              </div>
-            </div>
-          </div>
+        {warningModal && (
+          <WarningModal
+            data={warningModal}
+            onCancel={() => setWarningModal(null)}
+            onConfirm={() => {
+              applyConnection(
+                warningModal.pendingData.sourceTId,
+                warningModal.pendingData.sourceCId,
+                warningModal.pendingData.targetTId,
+                warningModal.pendingData.targetCId,
+              );
+              setWarningModal(null);
+            }}
+          />
         )}
 
         <Toolbar
@@ -1425,9 +1246,7 @@ const App = () => {
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         />
 
-        {/* Main Layout */}
         <div className="flex flex-1 overflow-hidden relative">
-          {/* Mobile Backdrop for Sidebar */}
           {isSidebarOpen && (
             <div
               className="md:hidden fixed inset-0 bg-black/50 z-20 backdrop-blur-sm"
@@ -1446,313 +1265,39 @@ const App = () => {
             setViewOptions={setViewOptions}
           />
 
-          <main
+          <DiagramCanvas
             ref={mainRef}
-            className="flex-1 bg-slate-50 dark:bg-slate-900 relative overflow-hidden transition-colors duration-200 touch-none"
+            viewTables={viewTables}
+            viewRelationships={viewRelationships}
+            viewOptions={viewOptions}
+            viewMode={viewMode}
+            zoom={zoom}
+            pan={pan}
+            theme={theme}
+            isPanning={isPanning}
+            isConnecting={isConnecting}
+            tempConnection={tempConnection}
+            dragInfo={dragInfo}
+            mousePos={mousePos}
+            selectedId={selectedId}
+            relMenuId={relMenu ? relMenu.id : null}
+            globalEditable={globalEditable}
             onPointerDown={handleCanvasPointerDown}
-            style={{
-              backgroundImage: getGridBackground(),
-              backgroundSize: `${40 * zoom}px ${40 * zoom}px`,
-              backgroundPosition: `${pan.x}px ${pan.y}px`,
-              cursor: isPanning
-                ? 'grabbing'
-                : isConnecting
-                  ? 'crosshair'
-                  : dragInfo.isDragging
-                    ? 'grabbing'
-                    : 'grab',
-            }}
-          >
-            <div
-              className="absolute top-0 left-0 w-full h-full origin-top-left"
-              style={{
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-              }}
-            >
-              <svg
-                className="absolute top-0 left-0 w-[10000px] h-[10000px] pointer-events-none z-0"
-                style={{ transform: 'translate(-5000px, -5000px)' }}
-              >
-                <defs>
-                  <marker
-                    id="oneStart"
-                    markerWidth="12"
-                    markerHeight="12"
-                    refX="0"
-                    refY="6"
-                    orient="auto"
-                    markerUnits="userSpaceOnUse"
-                  >
-                    <line x1="1" y1="0" x2="1" y2="12" stroke={strokeColor} strokeWidth="1.5" />
-                    <line x1="5" y1="0" x2="5" y2="12" stroke={strokeColor} strokeWidth="1.5" />
-                  </marker>
+            onRelPointerDown={handleRelPointerDown}
+            onRelClick={handleRelClick}
+            onTablePointerDown={handleTablePointerDown}
+            onStartConnection={startConnection}
+            onCompleteConnection={completeConnection}
+            onCompleteNewColConnection={completeConnectionToNewColumn}
+            onAddColumn={addColumn}
+            onUpdateTable={updateTable}
+            onUpdateColumn={updateColumn}
+            onMoveColumn={moveColumn}
+            onDeleteColumn={deleteColumn}
+            onConfigTable={handleConfigTable}
+          />
 
-                  {/* Standard One to Many */}
-                  <marker
-                    id="manyEnd"
-                    markerWidth="12"
-                    markerHeight="12"
-                    refX="11"
-                    refY="6"
-                    orient="auto"
-                    markerUnits="userSpaceOnUse"
-                  >
-                    <path
-                      d="M0,6 L11,6 M11,0 L0,6 L11,12"
-                      fill="none"
-                      stroke={strokeColor}
-                      strokeWidth="1.5"
-                    />
-                    <line x1="7" y1="0" x2="7" y2="12" stroke={strokeColor} strokeWidth="1.5" />
-                  </marker>
-
-                  {/* Standard One to One */}
-                  <marker
-                    id="oneEnd"
-                    markerWidth="12"
-                    markerHeight="12"
-                    refX="11"
-                    refY="6"
-                    orient="auto"
-                    markerUnits="userSpaceOnUse"
-                  >
-                    <line x1="7" y1="0" x2="7" y2="12" stroke={strokeColor} strokeWidth="1.5" />
-                    <line x1="11" y1="0" x2="11" y2="12" stroke={strokeColor} strokeWidth="1.5" />
-                  </marker>
-
-                  {/* Zero to Many (Circle + Crow Foot) */}
-                  <marker
-                    id="zeroManyEnd"
-                    markerWidth="14"
-                    markerHeight="12"
-                    refX="13"
-                    refY="6"
-                    orient="auto"
-                    markerUnits="userSpaceOnUse"
-                  >
-                    <circle
-                      cx="5"
-                      cy="6"
-                      r="3"
-                      fill={theme === 'dark' ? '#1e293b' : 'white'}
-                      stroke={strokeColor}
-                      strokeWidth="1.5"
-                    />
-                    <path
-                      d="M8,6 L13,6 M13,0 L8,6 L13,12"
-                      fill="none"
-                      stroke={strokeColor}
-                      strokeWidth="1.5"
-                    />
-                  </marker>
-
-                  {/* Zero to One (Circle + Line) */}
-                  <marker
-                    id="zeroOneEnd"
-                    markerWidth="14"
-                    markerHeight="12"
-                    refX="13"
-                    refY="6"
-                    orient="auto"
-                    markerUnits="userSpaceOnUse"
-                  >
-                    <circle
-                      cx="5"
-                      cy="6"
-                      r="3"
-                      fill={theme === 'dark' ? '#1e293b' : 'white'}
-                      stroke={strokeColor}
-                      strokeWidth="1.5"
-                    />
-                    <line x1="13" y1="0" x2="13" y2="12" stroke={strokeColor} strokeWidth="1.5" />
-                    <line x1="8" y1="6" x2="13" y2="6" stroke={strokeColor} strokeWidth="1.5" />
-                  </marker>
-                </defs>
-                <g transform="translate(5000, 5000)">
-                  {viewRelationships.map((rel) => {
-                    const isSelected = relMenu && relMenu.id === rel.id;
-                    let startM: string | undefined = 'url(#oneStart)';
-                    let endM: string | undefined = 'url(#manyEnd)';
-                    let startLabel = '1',
-                      endLabel = 'N';
-
-                    if (rel.type === '1:1') {
-                      endM = 'url(#oneEnd)';
-                      endLabel = '1';
-                    }
-                    if (rel.type === '1:0..N') {
-                      endM = 'url(#zeroManyEnd)';
-                      endLabel = '0..N';
-                    }
-                    if (rel.type === '1:0..1') {
-                      endM = 'url(#zeroOneEnd)';
-                      endLabel = '0..1';
-                    }
-
-                    if (rel.type === 'N:M') {
-                      startM = 'url(#manyEnd)';
-                      endM = 'url(#manyEnd)';
-                      startLabel = 'N';
-                      endLabel = 'M';
-                    }
-                    if (rel.type === 'N:1') {
-                      startM = 'url(#manyEnd)';
-                      endM = 'url(#oneEnd)';
-                      startLabel = 'N';
-                      endLabel = '1';
-                    }
-
-                    if (!viewOptions.showCardinality) {
-                      startM = undefined;
-                      endM = undefined;
-                    }
-
-                    // Calculate position for text labels
-                    const pts = getConnectorPoints(rel, viewTables); // Use viewTables for calculation
-                    const midpoint = getCurveMidpoint(rel, viewTables, viewOptions.lineStyle);
-
-                    // Calculate dynamic width for the label background based on character count
-                    const charWidth = 6; // Approximate width per character in pixels
-                    const padding = 16;
-                    const labelWidth = (rel.name ? rel.name.length * charWidth : 40) + padding;
-
-                    return (
-                      <g
-                        key={rel.id}
-                        className="pointer-events-auto cursor-pointer group"
-                        onPointerDown={(e) => handleRelPointerDown(e, rel.id)}
-                        onClick={(e) => handleRelClick(e, rel.id)}
-                      >
-                        {/* Hit area */}
-                        <path
-                          d={calculatePath(rel, viewTables, viewOptions.lineStyle)}
-                          stroke="transparent"
-                          strokeWidth="15"
-                          fill="none"
-                        />
-                        {/* Visible line */}
-                        <path
-                          d={calculatePath(rel, viewTables, viewOptions.lineStyle)}
-                          stroke={isSelected ? '#2563eb' : strokeColor}
-                          strokeWidth={isSelected ? '2.5' : '1.5'}
-                          fill="none"
-                          markerStart={startM}
-                          markerEnd={endM}
-                          className="transition-colors duration-200"
-                        />
-
-                        {/* Cardinality Labels */}
-                        {viewOptions.showCardinalityNumeric && pts && (
-                          <>
-                            <text
-                              x={
-                                pts.p1x +
-                                (pts.p1x >
-                                viewTables.find((t) => t.id === rel.fromTable)?.x! + TABLE_WIDTH / 2
-                                  ? 10
-                                  : -10)
-                              }
-                              y={pts.p1y - 5}
-                              textAnchor={
-                                pts.p1x >
-                                viewTables.find((t) => t.id === rel.fromTable)?.x! + TABLE_WIDTH / 2
-                                  ? 'start'
-                                  : 'end'
-                              }
-                              className="text-[10px] font-bold fill-slate-500 dark:fill-slate-400"
-                            >
-                              {startLabel}
-                            </text>
-                            <text
-                              x={
-                                pts.p2x +
-                                (pts.p2x >
-                                viewTables.find((t) => t.id === rel.toTable)?.x! + TABLE_WIDTH / 2
-                                  ? 10
-                                  : -10)
-                              }
-                              y={pts.p2y - 5}
-                              textAnchor={
-                                pts.p2x >
-                                viewTables.find((t) => t.id === rel.toTable)?.x! + TABLE_WIDTH / 2
-                                  ? 'start'
-                                  : 'end'
-                              }
-                              className="text-[10px] font-bold fill-slate-500 dark:fill-slate-400"
-                            >
-                              {endLabel}
-                            </text>
-                          </>
-                        )}
-
-                        {/* Relationship Name Label */}
-                        {viewOptions.showRelationshipNames && rel.name && (
-                          <g transform={`translate(${midpoint.x}, ${midpoint.y})`}>
-                            <rect
-                              x={-(labelWidth / 2)}
-                              y="-9"
-                              width={labelWidth}
-                              height="18"
-                              rx="4"
-                              fill={theme === 'dark' ? '#1e293b' : '#f8fafc'}
-                              stroke={theme === 'dark' ? '#475569' : '#cbd5e1'}
-                              strokeWidth="1"
-                              className="shadow-sm"
-                            />
-                            <text
-                              x="0"
-                              y="3"
-                              textAnchor="middle"
-                              className={`text-[10px] font-mono font-bold pointer-events-none select-none ${isSelected ? 'fill-blue-600 dark:fill-blue-400' : 'fill-slate-600 dark:fill-slate-300'}`}
-                            >
-                              {rel.name}
-                            </text>
-                          </g>
-                        )}
-                      </g>
-                    );
-                  })}
-                  {isConnecting && tempConnection && (
-                    <path
-                      d={`M ${tempConnection.startX} ${tempConnection.startY} L ${mousePos.x / zoom} ${mousePos.y / zoom}`}
-                      stroke="#3b82f6"
-                      strokeWidth="2"
-                      strokeDasharray="5,5"
-                      fill="none"
-                      markerEnd="url(#manyEnd)"
-                    />
-                  )}
-                </g>
-              </svg>
-
-              {viewTables.map((table) => (
-                <TableNode
-                  key={table.id}
-                  table={table}
-                  tables={viewTables}
-                  isSelected={selectedId === table.id}
-                  viewMode={viewMode}
-                  viewOptions={viewOptions}
-                  isConnecting={isConnecting}
-                  tempConnection={tempConnection}
-                  zoom={zoom}
-                  globalEditable={globalEditable}
-                  onPointerDown={handleTablePointerDown}
-                  onStartConnection={startConnection}
-                  onCompleteConnection={completeConnection}
-                  onCompleteNewColConnection={completeConnectionToNewColumn}
-                  onAddColumn={addColumn}
-                  onUpdateTable={updateTable}
-                  onUpdateColumn={updateColumn}
-                  onMoveColumn={moveColumn}
-                  onDeleteColumn={deleteColumn}
-                  onConfig={() => handleConfigTable(table.id)}
-                />
-              ))}
-            </div>
-          </main>
-
-          {/* Floating Action Buttons (FABs) - Mobile/Desktop */}
+          {/* Floating Action Buttons (FABs) */}
           <div className="md:hidden fixed bottom-6 right-6 z-40">
             <button
               onClick={addTable}
@@ -1775,88 +1320,20 @@ const App = () => {
             </div>
           )}
 
-          {relMenu && (
-            <div
-              className="fixed bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 p-1 flex flex-col gap-1 z-50 animate-in fade-in zoom-in-95 duration-100"
-              style={{ left: relMenu.x, top: relMenu.y }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="text-[10px] font-bold text-slate-400 px-2 py-1 border-b border-slate-100 dark:border-slate-700 uppercase tracking-wider">
-                Relationship
-              </div>
-
-              <div className="px-2 py-1">
-                <input
-                  type="text"
-                  className="w-full text-xs p-1 border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded font-mono text-slate-700 dark:text-slate-300 focus:border-blue-400 outline-none"
-                  value={relationships.find((r) => r.id === relMenu.id)?.name || ''}
-                  onChange={(e) => updateRelName(relMenu.id, e.target.value)}
-                  placeholder="Relationship Name"
-                />
-              </div>
-
-              <div className="h-[1px] bg-slate-100 dark:bg-slate-700 my-0.5"></div>
-
-              <div className="text-[10px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wider">
-                Cardinality
-              </div>
-
-              <button
-                onClick={() => updateRelType('1:1')}
-                className="flex items-center gap-2 px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-xs text-slate-700 dark:text-slate-300 rounded text-left transition-colors"
-              >
-                <span>One to One (1:1)</span>
-              </button>
-
-              <button
-                onClick={() => updateRelType('1:0..1')}
-                className="flex items-center gap-2 px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-xs text-slate-700 dark:text-slate-300 rounded text-left transition-colors"
-              >
-                <span>One to Zero-or-One (1:0..1)</span>
-              </button>
-
-              <button
-                onClick={() => updateRelType('1:N')}
-                className="flex items-center gap-2 px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-xs text-slate-700 dark:text-slate-300 rounded text-left transition-colors"
-              >
-                <span>One to Many (1:N)</span>
-              </button>
-
-              <button
-                onClick={() => updateRelType('1:0..N')}
-                className="flex items-center gap-2 px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-xs text-slate-700 dark:text-slate-300 rounded text-left transition-colors"
-              >
-                <span>One to Zero-or-Many (1:0..N)</span>
-              </button>
-
-              <button
-                onClick={() => updateRelType('N:M')}
-                className="flex items-center gap-2 px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-xs text-slate-700 dark:text-slate-300 rounded text-left transition-colors"
-              >
-                <span>Many to Many (N:M)</span>
-              </button>
-
-              <div className="h-[1px] bg-slate-100 dark:bg-slate-700 my-0.5"></div>
-
-              <button
-                onClick={resetRelRouting}
-                className="flex items-center gap-2 px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-xs text-slate-700 dark:text-slate-300 rounded text-left transition-colors"
-              >
-                <RotateCcw size={14} /> <span>Reset to Auto</span>
-              </button>
-
-              <button
-                onClick={deleteRel}
-                className="flex items-center gap-2 px-3 py-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 text-xs text-red-600 dark:text-red-400 rounded text-left font-medium transition-colors"
-              >
-                <Trash2 size={14} /> Delete Relationship
-              </button>
-            </div>
+          {/* Relationship Context Menu */}
+          {relMenu && activeRel && (
+            <RelationshipMenu
+              x={relMenu.x}
+              y={relMenu.y}
+              currentName={activeRel.name}
+              onUpdateName={(name) => updateRelName(activeRel.id, name)}
+              onUpdateType={updateRelType}
+              onResetRouting={resetRelRouting}
+              onDelete={deleteRel}
+            />
           )}
 
           {selectedTable && isPropertiesPanelOpen && (
-            // Mobile: Overlay. Desktop: Flex panel (but here we just position it appropriately or wrap it)
-            // Since PropertiesPanel component handles its own layout, we just need to ensure it sits on top in mobile
             <div className="fixed inset-0 z-40 md:static md:z-auto md:w-auto bg-white/50 dark:bg-black/50 backdrop-blur-sm md:bg-transparent md:backdrop-blur-none flex flex-col justify-end md:block">
               <PropertiesPanel
                 width={sidebarWidth}
