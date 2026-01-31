@@ -1,13 +1,6 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import type {
-  Table,
-  Relationship,
-  ViewOptions,
-  TempConnection,
-  WarningData,
-  Column,
-} from './ui/types';
+import type { Table, Relationship, ViewOptions, WarningData, Column } from './ui/types';
 import { generateId, TABLE_WIDTH } from './utils/geometry';
 import Toolbar from './ui/components/Toolbar';
 import Sidebar from './ui/components/Sidebar';
@@ -15,7 +8,6 @@ import PropertiesPanel from './ui/components/PropertiesPanel';
 import WarningModal from './ui/components/WarningModal';
 import DiagramCanvas from './ui/components/DiagramCanvas';
 import RelationshipMenu from './ui/components/RelationshipMenu';
-import { useCanvasLogic } from './ui/hooks/useCanvasLogic';
 
 const App = () => {
   // --- Theme State ---
@@ -254,13 +246,13 @@ const App = () => {
   const [sidebarWidth, setSidebarWidth] = useState(300);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // UI State
+  const [zoom, setZoom] = useState<number>(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+
   // Connection State
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [tempConnection, setTempConnection] = useState<TempConnection | null>(null);
   const [relMenu, setRelMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [warningModal, setWarningModal] = useState<WarningData | null>(null);
-
-  const mainRef = useRef<HTMLDivElement>(null);
 
   // --- Derived State for Physical/Logical Views ---
   const { viewTables, viewRelationships } = useMemo(() => {
@@ -385,43 +377,6 @@ const App = () => {
     return { viewTables: physicalTables, viewRelationships: physicalRels };
   }, [tables, relationships, viewMode]);
 
-  // --- Interaction Hook ---
-  const {
-    zoom,
-    setZoom,
-    pan,
-    isPanning,
-    dragInfo,
-    mousePos,
-    setIsResizingSidebar,
-    handleCanvasPointerDown,
-    handleTouchStart,
-    handleTouchMove,
-    handleTouchEnd,
-    handleRelPointerDown,
-    handleTablePointerDown,
-    handlePointerMove,
-    handlePointerUp,
-  } = useCanvasLogic({
-    tables,
-    setTables,
-    relationships,
-    setRelationships,
-    viewTables,
-    sidebarWidth,
-    setSidebarWidth,
-    setSelectedId,
-    setIsPropertiesPanelOpen,
-    setRelMenu,
-    globalEditable,
-    mainRef,
-    isConnecting,
-    setIsConnecting,
-    setTempConnection,
-  });
-
-  // --- Logic ---
-
   const applyConnection = (
     sourceTId: string,
     sourceCId: string,
@@ -505,181 +460,6 @@ const App = () => {
         };
       }),
     );
-  };
-
-  const startConnection = (
-    e: React.PointerEvent,
-    tableId: string,
-    colId: string,
-    side: 'left' | 'right',
-  ) => {
-    e.stopPropagation();
-    setRelMenu(null);
-
-    const table = viewTables.find((t) => t.id === tableId);
-    if (!table) return;
-    if (tableId.startsWith('virt_')) return;
-
-    setIsConnecting(true);
-    setTempConnection({
-      sourceTableId: tableId,
-      sourceColId: colId,
-      startX: table.x + (side === 'right' ? 280 : 0),
-      startY: table.y + 40,
-      side,
-    });
-
-    if (mainRef.current) {
-      mainRef.current.setPointerCapture(e.pointerId);
-    }
-  };
-
-  const completeConnectionToNewColumn = (e: React.MouseEvent, targetTableId: string) => {
-    if (isConnecting && tempConnection) {
-      e.stopPropagation();
-
-      const sourceTable = tables.find((t) => t.id === tempConnection.sourceTableId);
-      const sourceCol = sourceTable?.columns.find((c) => c.id === tempConnection.sourceColId);
-      const targetTable = tables.find((t) => t.id === targetTableId);
-
-      if (targetTableId.startsWith('virt_')) {
-        setIsConnecting(false);
-        setTempConnection(null);
-        return;
-      }
-
-      if (!sourceCol || !targetTable) return;
-
-      let newName = sourceCol.name;
-      let newLogicalName = sourceCol.logicalName;
-      let counter = 2;
-
-      while (targetTable.columns.some((c) => c.name.toLowerCase() === newName.toLowerCase())) {
-        newName = `${sourceCol.name}${counter}`;
-        newLogicalName = `${sourceCol.logicalName} ${counter}`;
-        counter++;
-      }
-
-      const newColId = generateId();
-      const newCol: Column = {
-        id: newColId,
-        name: newName,
-        logicalName: newLogicalName,
-        type: sourceCol.type,
-        length: sourceCol.length,
-        isPk: false,
-        isFk: true,
-        isNullable: sourceCol.isIdentity || !sourceCol.isNullable ? false : true,
-        isUnique: false,
-        isIdentity: false,
-      };
-
-      setTables((prev) =>
-        prev.map((t) => {
-          if (t.id === targetTableId) {
-            return { ...t, columns: [...t.columns, newCol] };
-          }
-          return t;
-        }),
-      );
-
-      const relName =
-        `fk_${sourceTable?.name}_${sourceCol.name}_${targetTable.name}_${newName}`.toLowerCase();
-
-      const newRel: Relationship = {
-        id: generateId(),
-        name: relName,
-        fromTable: tempConnection.sourceTableId,
-        fromCol: tempConnection.sourceColId,
-        toTable: targetTableId,
-        toCol: newColId,
-        type: '1:N',
-      };
-      setRelationships((prev) => [...prev, newRel]);
-
-      setIsConnecting(false);
-      setTempConnection(null);
-    }
-  };
-
-  const completeConnection = (e: React.MouseEvent, targetTableId: string, targetColId: string) => {
-    if (isConnecting && tempConnection) {
-      e.stopPropagation();
-
-      const sourceTId = tempConnection.sourceTableId;
-      const sourceCId = tempConnection.sourceColId;
-
-      if (sourceTId === targetTableId && sourceCId === targetColId) {
-        setIsConnecting(false);
-        setTempConnection(null);
-        return;
-      }
-
-      if (targetTableId.startsWith('virt_') || sourceTId.startsWith('virt_')) {
-        setIsConnecting(false);
-        setTempConnection(null);
-        return;
-      }
-
-      const exists = relationships.find(
-        (r) =>
-          (r.fromTable === sourceTId &&
-            r.fromCol === sourceCId &&
-            r.toTable === targetTableId &&
-            r.toCol === targetColId) ||
-          (r.toTable === sourceTId &&
-            r.toCol === sourceCId &&
-            r.fromTable === targetTableId &&
-            r.fromCol === targetColId),
-      );
-
-      if (exists) {
-        setIsConnecting(false);
-        setTempConnection(null);
-        return;
-      }
-
-      const sourceTable = tables.find((t) => t.id === sourceTId);
-      const sourceCol = sourceTable?.columns.find((c) => c.id === sourceCId);
-      const targetTable = tables.find((t) => t.id === targetTableId);
-      const targetCol = targetTable?.columns.find((c) => c.id === targetColId);
-
-      if (!sourceCol || !targetCol) return;
-
-      if (targetCol.isFk) {
-        setIsConnecting(false);
-        setTempConnection(null);
-        return;
-      }
-
-      const expectedType = sourceCol.type;
-      const expectedLength = sourceCol.length;
-      const expectedNullable = sourceCol.isIdentity || !sourceCol.isNullable ? false : true;
-
-      const hasMismatch =
-        targetCol.type !== expectedType ||
-        targetCol.length !== expectedLength ||
-        targetCol.isNullable !== expectedNullable;
-
-      if (hasMismatch) {
-        setWarningModal({
-          isOpen: true,
-          pendingData: {
-            sourceTId,
-            sourceCId,
-            targetTId: targetTableId,
-            targetCId: targetColId,
-            sourceCol,
-            targetCol,
-          },
-        });
-      } else {
-        applyConnection(sourceTId, sourceCId, targetTableId, targetColId);
-      }
-
-      setIsConnecting(false);
-      setTempConnection(null);
-    }
   };
 
   // --- CRUD Operations ---
@@ -988,12 +768,6 @@ const App = () => {
     );
   };
 
-  const handleRelClick = (e: React.MouseEvent, relId: string) => {
-    e.stopPropagation();
-    if (relId.startsWith('virt_')) return;
-    setRelMenu({ id: relId, x: e.clientX, y: e.clientY });
-  };
-
   const updateRelType = (type: any) => {
     if (!relMenu) return;
     const rel = relationships.find((r) => r.id === relMenu.id);
@@ -1068,7 +842,7 @@ const App = () => {
   const selectedTable = viewTables.find((t) => t.id === selectedId);
 
   // Active Relationship for Menu
-  const activeRel = useMemo(
+  const activeRel = React.useMemo(
     () => (relMenu ? relationships.find((r) => r.id === relMenu.id) : null),
     [relMenu, relationships],
   );
@@ -1080,12 +854,6 @@ const App = () => {
       <div
         className="flex flex-col h-screen w-full bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans overflow-hidden transition-colors duration-200"
         onClick={() => setRelMenu(null)}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
       >
         {warningModal && (
           <WarningModal
@@ -1133,29 +901,27 @@ const App = () => {
           />
 
           <DiagramCanvas
-            ref={mainRef}
+            tables={tables}
+            setTables={setTables}
+            relationships={relationships}
+            setRelationships={setRelationships}
             viewTables={viewTables}
             viewRelationships={viewRelationships}
+            zoom={zoom}
+            setZoom={setZoom}
+            pan={pan}
+            setPan={setPan}
             viewOptions={viewOptions}
             viewMode={viewMode}
-            zoom={zoom}
-            pan={pan}
             theme={theme}
-            isPanning={isPanning}
-            isConnecting={isConnecting}
-            tempConnection={tempConnection}
-            dragInfo={dragInfo}
-            mousePos={mousePos}
+            globalEditable={globalEditable}
+            setSidebarWidth={setSidebarWidth}
+            setSelectedId={setSelectedId}
+            setIsPropertiesPanelOpen={setIsPropertiesPanelOpen}
+            setRelMenu={setRelMenu}
+            setWarningModal={setWarningModal}
             selectedId={selectedId}
             relMenuId={relMenu ? relMenu.id : null}
-            globalEditable={globalEditable}
-            onPointerDown={handleCanvasPointerDown}
-            onRelPointerDown={handleRelPointerDown}
-            onRelClick={handleRelClick}
-            onTablePointerDown={handleTablePointerDown}
-            onStartConnection={startConnection}
-            onCompleteConnection={completeConnection}
-            onCompleteNewColConnection={completeConnectionToNewColumn}
             onAddColumn={addColumn}
             onUpdateTable={updateTable}
             onUpdateColumn={updateColumn}
@@ -1204,7 +970,9 @@ const App = () => {
             <div className="fixed inset-0 z-40 md:static md:z-auto md:w-auto bg-white/50 dark:bg-black/50 backdrop-blur-sm md:bg-transparent md:backdrop-blur-none flex flex-col justify-end md:block">
               <PropertiesPanel
                 width={sidebarWidth}
-                onResizeStart={() => setIsResizingSidebar(true)}
+                onResizeStart={() => {
+                  /* Handled in component interaction but needs exposing or prop if dragged from here */
+                }}
                 selectedTable={selectedTable}
                 relationships={relationships}
                 onClose={() => setIsPropertiesPanelOpen(false)}
