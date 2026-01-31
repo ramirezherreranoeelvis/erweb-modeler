@@ -358,6 +358,7 @@ export const useSchemaData = (viewMode: string) => {
                   type: sourceCol.type,
                   length: sourceCol.length,
                   isNullable: sourceCol.isIdentity || !sourceCol.isNullable ? false : true,
+                  isIdentity: false, // FORCE IDENTITY FALSE FOR FK
                 };
               }
               return c;
@@ -626,7 +627,12 @@ export const useSchemaData = (viewMode: string) => {
                 updatedCol.isNullable = false;
               }
               if (field === 'isIdentity' && value === true) {
-                updatedCol.isNullable = false;
+                if (updatedCol.isFk) {
+                  // Prevent Identity if it's an FK
+                  updatedCol.isIdentity = false;
+                } else {
+                  updatedCol.isNullable = false;
+                }
               }
               updatedColumnData = updatedCol;
               return updatedCol;

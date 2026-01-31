@@ -238,8 +238,8 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                         </label>
 
                         <label
-                          className={`flex flex-col items-center group/chk ${col.isNullable ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
-                          title="Identity"
+                          className={`flex flex-col items-center group/chk ${col.isNullable || col.isFk ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                          title={col.isFk ? 'Foreign Keys cannot be Identity' : 'Identity'}
                         >
                           <span className="text-[8px] font-bold text-slate-400 mb-0.5 group-hover/chk:text-purple-600">
                             ID
@@ -247,7 +247,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                           <input
                             type="checkbox"
                             checked={col.isIdentity}
-                            disabled={col.isNullable}
+                            disabled={col.isNullable || col.isFk}
                             onChange={(e) =>
                               onUpdateColumn(
                                 selectedTable.id,
@@ -256,7 +256,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                                 e.target.checked,
                               )
                             }
-                            className={`w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-600 text-purple-600 focus:ring-0 dark:bg-slate-700 ${col.isNullable ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800' : 'cursor-pointer'}`}
+                            className={`w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-600 text-purple-600 focus:ring-0 dark:bg-slate-700 ${col.isNullable || col.isFk ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800' : 'cursor-pointer'}`}
                           />
                         </label>
 
