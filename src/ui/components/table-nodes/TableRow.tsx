@@ -154,10 +154,6 @@ const TableRow: React.FC<TableRowProps> = ({
                   value={editValue}
                   onChange={(e) => {
                     onEditChange(e.target.value);
-                    // Hack to trigger save immediately since select change blurs differently
-                    // but we need to update state first in parent.
-                    // We'll let the parent handle 'onChange' update then effect?
-                    // For now, simpler:
                     setTimeout(() => onEditSave(), 0);
                   }}
                   onBlur={onEditSave}
@@ -263,17 +259,19 @@ const TableRow: React.FC<TableRowProps> = ({
         )}
       </div>
 
-      {/* Delete Column Button - Always Visible on Hover (Desktop) or if row is interacted */}
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation();
-          onDeleteColumn(tableId, col.id);
-        }}
-        className="absolute right-0 top-0 bottom-0 w-7 flex items-center justify-center bg-white/90 dark:bg-slate-800/90 opacity-0 group-hover/row:opacity-100 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 cursor-pointer transition-all border-l border-slate-100 dark:border-slate-700"
-      >
-        <Trash2 size={12} />
-      </div>
+      {/* Delete Column Button - Only visible if Locked */}
+      {isLocked && (
+        <div
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDeleteColumn(tableId, col.id);
+          }}
+          className="absolute right-0 top-0 bottom-0 w-7 flex items-center justify-center bg-white/90 dark:bg-slate-800/90 opacity-0 group-hover/row:opacity-100 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 cursor-pointer transition-all border-l border-slate-100 dark:border-slate-700"
+        >
+          <Trash2 size={12} />
+        </div>
+      )}
     </div>
   );
 };

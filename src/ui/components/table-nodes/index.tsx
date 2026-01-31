@@ -95,24 +95,26 @@ const TableNode: React.FC<TableNodeProps> = ({
         onCompleteNewColConnection={onCompleteNewColConnection}
       />
 
-      {/* Quick Add Column Button (Bottom Center) - Visible on hover OR when selected (Mobile friendly) */}
-      <div
-        className={`absolute -bottom-3 left-1/2 -translate-x-1/2 z-20 transition-opacity duration-200 ${
-          isSelected ? 'opacity-100' : 'opacity-0 group-hover/table:opacity-100'
-        }`}
-        onMouseDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation();
-          onAddColumn(table.id);
-        }}
-      >
+      {/* Quick Add Column Button (Bottom Center) - Only Visible when Locked (Editable) */}
+      {isLocked && (
         <div
-          className="bg-blue-600 dark:bg-blue-500 text-white rounded-full p-1 shadow-md border-2 border-white dark:border-slate-700 hover:scale-110 active:scale-95 transition-transform cursor-pointer"
-          title="Quick Add Column"
+          className={`absolute -bottom-3 left-1/2 -translate-x-1/2 z-20 transition-opacity duration-200 ${
+            isSelected ? 'opacity-100' : 'opacity-0 group-hover/table:opacity-100'
+          }`}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onAddColumn(table.id);
+          }}
         >
-          <Plus size={14} strokeWidth={3} />
+          <div
+            className="bg-blue-600 dark:bg-blue-500 text-white rounded-full p-1 shadow-md border-2 border-white dark:border-slate-700 hover:scale-110 active:scale-95 transition-transform cursor-pointer"
+            title="Quick Add Column"
+          >
+            <Plus size={14} strokeWidth={3} />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

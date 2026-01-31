@@ -698,12 +698,57 @@ export const useSchemaData = (viewMode: string) => {
   const deleteColumn = (tableId: string, colId: string) => {
     if (tableId.startsWith('virt_')) return;
 
-    setTables(
-      tables.map((t) => {
-        if (t.id === tableId) return { ...t, columns: t.columns.filter((c) => c.id !== colId) };
+    // 1. Identify relationships where this column is the source (Origin)
+    const relationshipsAsSource = relationships.filter(
+      (r) => r.fromTable === tableId && r.fromCol === colId,
+    );
+
+    // 2. Identify relationships where this column is the target (Destination)
+    // We remove these relationships too, to avoid dangling references,
+    // but we usually don't delete the source column in this case (Standard SQL behavior).
+    const relationshipsAsTarget = relationships.filter(
+      (r) => r.toTable === tableId && r.toCol === colId,
+    );
+
+    const relsToDelete = [...relationshipsAsSource, ...relationshipsAsTarget];
+    const relIdsToDelete = new Set(relsToDelete.map((r) => r.id));
+
+    // 3. Identify FK columns that should be deleted (Cascading delete)
+    const columnsToDelete: { tableId: string; colId: string }[] = [];
+
+    // Add the primary column being deleted
+    columnsToDelete.push({ tableId, colId });
+
+    // Add the destination columns (FKs) for relationships where we are the source
+    relationshipsAsSource.forEach((r) => {
+      // For N:M, there are no physical columns in the other table to delete usually,
+      // but for 1:N / 1:1, we delete the FK column as requested.
+      if (r.type !== 'N:M') {
+        columnsToDelete.push({ tableId: r.toTable, colId: r.toCol });
+      }
+    });
+
+    // 4. Update Tables State
+    setTables((prevTables) =>
+      prevTables.map((t) => {
+        // Check if this table has columns to delete
+        const colsToRemove = columnsToDelete.filter((del) => del.tableId === t.id);
+
+        if (colsToRemove.length > 0) {
+          const idsToRemove = new Set(colsToRemove.map((c) => c.colId));
+          return {
+            ...t,
+            columns: t.columns.filter((c) => !idsToRemove.has(c.id)),
+          };
+        }
         return t;
       }),
     );
+
+    // 5. Update Relationships State
+    if (relIdsToDelete.size > 0) {
+      setRelationships((prev) => prev.filter((r) => !relIdsToDelete.has(r.id)));
+    }
   };
 
   const updateRelType = (relId: string, type: any) => {
