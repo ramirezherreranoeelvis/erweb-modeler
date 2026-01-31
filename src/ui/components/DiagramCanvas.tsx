@@ -1,11 +1,19 @@
 import React, { useRef, useState } from 'react';
-import type { Table, Relationship, ViewOptions, WarningData, DragInfo, TempConnection, Column } from '../types';
+import type {
+  Table,
+  Relationship,
+  ViewOptions,
+  WarningData,
+  DragInfo,
+  TempConnection,
+  Column,
+} from '../types';
 import {
   calculatePath,
   getConnectorPoints,
   getCurveMidpoint,
   TABLE_WIDTH,
-  generateId
+  generateId,
 } from '../../utils/geometry';
 import TableNode from './table-nodes';
 
@@ -15,35 +23,41 @@ interface DiagramCanvasProps {
   setTables: React.Dispatch<React.SetStateAction<Table[]>>;
   relationships: Relationship[];
   setRelationships: React.Dispatch<React.SetStateAction<Relationship[]>>;
-  
+
   // Computed Data
   viewTables: Table[];
   viewRelationships: Relationship[];
-  
+
   // View State (Shared with Toolbar)
   zoom: number;
   setZoom: (z: number) => void;
   pan: { x: number; y: number };
   setPan: React.Dispatch<React.SetStateAction<{ x: number; y: number }>>;
-  
+
   // Configuration
   viewOptions: ViewOptions;
   viewMode: string;
   theme: 'light' | 'dark';
   globalEditable: boolean;
-  
+
   // UI Setters
   setSidebarWidth: (w: number) => void;
   setSelectedId: (id: string | null) => void;
   setIsPropertiesPanelOpen: (isOpen: boolean) => void;
   setRelMenu: (menu: { id: string; x: number; y: number } | null) => void;
   setWarningModal: (data: WarningData | null) => void;
-  
+
   // Current UI State (from Parent)
   selectedId: string | null;
   relMenuId: string | null;
 
   // Business Logic Handlers
+  onApplyConnection: (
+    sourceTId: string,
+    sourceCId: string,
+    targetTId: string,
+    targetCId: string,
+  ) => void;
   onAddColumn: (tableId: string) => void;
   onUpdateTable: (id: string, field: string, value: any) => void;
   onUpdateColumn: (tableId: string, colId: string, field: string, value: any) => void;
@@ -74,6 +88,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
   setWarningModal,
   selectedId,
   relMenuId,
+  onApplyConnection,
   onAddColumn,
   onUpdateTable,
   onUpdateColumn,
@@ -82,7 +97,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
   onConfigTable,
 }) => {
   const mainRef = useRef<HTMLDivElement>(null);
-  
+
   // --- Local State for Interactions ---
   const [isPanning, setIsPanning] = useState(false);
   const [dragInfo, setDragInfo] = useState<DragInfo>({
@@ -92,66 +107,13 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
   });
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
-  
+
   // Connection State
   const [isConnecting, setIsConnecting] = useState(false);
   const [tempConnection, setTempConnection] = useState<TempConnection | null>(null);
-  
+
   // Refs
   const touchDist = useRef<number | null>(null);
-
-  // --- Helpers ---
-  const applyConnection = (
-    sourceTId: string,
-    sourceCId: string,
-    targetTId: string,
-    targetCId: string,
-  ) => {
-    const sourceTable = tables.find((t) => t.id === sourceTId);
-    const targetTable = tables.find((t) => t.id === targetTId);
-    const sourceCol = sourceTable?.columns.find((c) => c.id === sourceCId);
-    const targetCol = targetTable?.columns.find((c) => c.id === targetCId);
-
-    const name =
-      `fk_${sourceTable?.name}_${sourceCol?.name}_${targetTable?.name}_${targetCol?.name}`.toLowerCase();
-
-    const newRel: Relationship = {
-      id: generateId(),
-      name: name,
-      fromTable: sourceTId,
-      fromCol: sourceCId,
-      toTable: targetTId,
-      toCol: targetCId,
-      type: '1:N',
-    };
-    setRelationships((prev) => [...prev, newRel]);
-
-    if (!sourceCol) return;
-
-    // Auto-update FK definition in target table
-    setTables((prevTables) =>
-      prevTables.map((t) => {
-        if (t.id === targetTId) {
-          return {
-            ...t,
-            columns: t.columns.map((c) => {
-              if (c.id === targetCId) {
-                return {
-                  ...c,
-                  isFk: true,
-                  type: sourceCol.type,
-                  length: sourceCol.length,
-                  isNullable: sourceCol.isIdentity || !sourceCol.isNullable ? false : true,
-                };
-              }
-              return c;
-            }),
-          };
-        }
-        return t;
-      }),
-    );
-  };
 
   // --- Handlers ---
 
@@ -197,7 +159,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
     setDragInfo({ isDragging: true, offset: { x: 0, y: 0 }, targetId: relId });
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
   };
-  
+
   const handleRelClick = (e: React.MouseEvent, relId: string) => {
     e.stopPropagation();
     if (relId.startsWith('virt_')) return;
@@ -327,7 +289,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
           },
         });
       } else {
-        applyConnection(sourceTId, sourceCId, targetTableId, targetColId);
+        onApplyConnection(sourceTId, sourceCId, targetTableId, targetColId);
       }
 
       setIsConnecting(false);
@@ -431,39 +393,44 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
     // 4. Dragging Logic
     if (dragInfo.isDragging && dragInfo.targetId) {
       // Relationship Dragging (Relocating lines)
-      const draggingRel = relationships.find(r => r.id === dragInfo.targetId);
+      const draggingRel = relationships.find((r) => r.id === dragInfo.targetId);
       if (draggingRel) {
-        const sourceTable = viewTables.find(t => t.id === draggingRel.fromTable);
-        const targetTable = viewTables.find(t => t.id === draggingRel.toTable);
+        const sourceTable = viewTables.find((t) => t.id === draggingRel.fromTable);
+        const targetTable = viewTables.find((t) => t.id === draggingRel.toTable);
 
         if (sourceTable && targetTable) {
-            const sourceCenter = sourceTable.x + TABLE_WIDTH / 2;
-            const targetCenter = targetTable.x + TABLE_WIDTH / 2;
-            
-            const newSourceSide = x < sourceCenter ? 'left' : 'right';
-            const newTargetSide = x < targetCenter ? 'left' : 'right';
-            
-            if (draggingRel.sourceSide !== newSourceSide || draggingRel.targetSide !== newTargetSide) {
-                setRelationships(prev => prev.map(r => 
-                    r.id === draggingRel.id 
-                    ? { ...r, sourceSide: newSourceSide, targetSide: newTargetSide } 
-                    : r
-                ));
-            }
+          const sourceCenter = sourceTable.x + TABLE_WIDTH / 2;
+          const targetCenter = targetTable.x + TABLE_WIDTH / 2;
+
+          const newSourceSide = x < sourceCenter ? 'left' : 'right';
+          const newTargetSide = x < targetCenter ? 'left' : 'right';
+
+          if (
+            draggingRel.sourceSide !== newSourceSide ||
+            draggingRel.targetSide !== newTargetSide
+          ) {
+            setRelationships((prev) =>
+              prev.map((r) =>
+                r.id === draggingRel.id
+                  ? { ...r, sourceSide: newSourceSide, targetSide: newTargetSide }
+                  : r,
+              ),
+            );
+          }
         }
-        return; 
+        return;
       }
 
       // Virtual Table Dragging
       if (dragInfo.targetId.startsWith('virt_')) {
-         const relId = dragInfo.targetId.replace('virt_', '');
-         const newX = x - dragInfo.offset.x;
-         const newY = y - dragInfo.offset.y;
-         
-         setRelationships(prev => prev.map(r => 
-           r.id === relId ? { ...r, x: newX, y: newY } : r
-         ));
-         return; 
+        const relId = dragInfo.targetId.replace('virt_', '');
+        const newX = x - dragInfo.offset.x;
+        const newY = y - dragInfo.offset.y;
+
+        setRelationships((prev) =>
+          prev.map((r) => (r.id === relId ? { ...r, x: newX, y: newY } : r)),
+        );
+        return;
       }
 
       // Normal Table Dragging
@@ -491,15 +458,17 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
   };
 
   // --- Rendering ---
-  
+
   // SVG Colors based on theme
   const strokeColor = theme === 'dark' ? '#94a3b8' : '#475569';
   const gridColor = theme === 'dark' ? '#334155' : '#cbd5e1';
 
   // Calculate background image based on gridStyle
   const getGridBackground = () => {
-    if (viewOptions.gridStyle === 'dots') return `radial-gradient(${gridColor} 1px, transparent 1px)`;
-    if (viewOptions.gridStyle === 'squares') return `linear-gradient(to right, ${gridColor} 1px, transparent 1px), linear-gradient(to bottom, ${gridColor} 1px, transparent 1px)`;
+    if (viewOptions.gridStyle === 'dots')
+      return `radial-gradient(${gridColor} 1px, transparent 1px)`;
+    if (viewOptions.gridStyle === 'squares')
+      return `linear-gradient(to right, ${gridColor} 1px, transparent 1px), linear-gradient(to bottom, ${gridColor} 1px, transparent 1px)`;
     return 'none';
   };
 
