@@ -17,7 +17,7 @@ import {
   TABLE_WIDTH,
 } from './utils/geometry';
 import Toolbar from './ui/components/Toolbar';
-import TableNode from './ui/components/TableNode';
+import TableNode from './ui/components/table-nodes';
 import PropertiesPanel from './ui/components/PropertiesPanel';
 
 const App = () => {
