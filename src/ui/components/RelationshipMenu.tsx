@@ -1,5 +1,5 @@
 import React from 'react';
-import { RotateCcw, Trash2 } from 'lucide-react';
+import { RotateCcw, Trash2, ArrowRight, ArrowLeft } from 'lucide-react';
 
 interface RelationshipMenuProps {
   x: number;
@@ -8,6 +8,7 @@ interface RelationshipMenuProps {
   onUpdateName: (name: string) => void;
   onUpdateType: (type: string) => void;
   onResetRouting: () => void;
+  onSetRouting: (source: 'left' | 'right', target: 'left' | 'right') => void;
   onDelete: () => void;
 }
 
@@ -18,11 +19,12 @@ const RelationshipMenu: React.FC<RelationshipMenuProps> = ({
   onUpdateName,
   onUpdateType,
   onResetRouting,
+  onSetRouting,
   onDelete,
 }) => {
   return (
     <div
-      className="fixed bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 p-1 flex flex-col gap-1 z-50 animate-in fade-in zoom-in-95 duration-100"
+      className="fixed bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 p-1 flex flex-col gap-1 z-50 animate-in fade-in zoom-in-95 duration-100 w-56"
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >
@@ -81,6 +83,56 @@ const RelationshipMenu: React.FC<RelationshipMenuProps> = ({
       >
         <span>Many to Many (N:M)</span>
       </button>
+
+      <div className="h-[1px] bg-slate-100 dark:bg-slate-700 my-0.5"></div>
+
+      <div className="text-[10px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wider">
+        Routing
+      </div>
+
+      <div className="flex gap-1 px-2 py-1">
+        {/* Right -> Right */}
+        <button
+          onClick={() => onSetRouting('right', 'right')}
+          className="flex-1 flex items-center justify-center py-1.5 bg-slate-50 dark:bg-slate-700/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-600 transition-all"
+          title="Right → Right"
+        >
+          <ArrowRight size={14} />
+        </button>
+
+        {/* Right -> Left */}
+        <button
+          onClick={() => onSetRouting('right', 'left')}
+          className="flex-1 flex items-center justify-center py-1.5 bg-slate-50 dark:bg-slate-700/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-600 transition-all"
+          title="Right → Left"
+        >
+          <div className="flex -space-x-1">
+            <ArrowRight size={12} />
+            <ArrowLeft size={12} />
+          </div>
+        </button>
+
+        {/* Left -> Left */}
+        <button
+          onClick={() => onSetRouting('left', 'left')}
+          className="flex-1 flex items-center justify-center py-1.5 bg-slate-50 dark:bg-slate-700/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-600 transition-all"
+          title="Left → Left"
+        >
+          <ArrowLeft size={14} />
+        </button>
+
+        {/* Left -> Right */}
+        <button
+          onClick={() => onSetRouting('left', 'right')}
+          className="flex-1 flex items-center justify-center py-1.5 bg-slate-50 dark:bg-slate-700/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-600 transition-all"
+          title="Left → Right"
+        >
+          <div className="flex -space-x-1">
+            <ArrowLeft size={12} />
+            <ArrowRight size={12} />
+          </div>
+        </button>
+      </div>
 
       <div className="h-[1px] bg-slate-100 dark:bg-slate-700 my-0.5"></div>
 

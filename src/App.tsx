@@ -228,6 +228,10 @@ const App = () => {
                 actions.resetRelRouting(activeRel.id);
                 setRelMenu(null);
               }}
+              onSetRouting={(source, target) => {
+                actions.setRelRouting(activeRel.id, source, target);
+                setRelMenu(null);
+              }}
               onDelete={() => {
                 actions.deleteRel(activeRel.id);
                 setRelMenu(null);

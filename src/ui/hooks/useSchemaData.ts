@@ -799,6 +799,16 @@ export const useSchemaData = (viewMode: string) => {
     );
   };
 
+  const setRelRouting = (
+    relId: string,
+    sourceSide: 'left' | 'right',
+    targetSide: 'left' | 'right',
+  ) => {
+    setRelationships((prev) =>
+      prev.map((r) => (r.id === relId ? { ...r, sourceSide, targetSide } : r)),
+    );
+  };
+
   const deleteRel = (relId: string) => {
     const rel = relationships.find((r) => r.id === relId);
     if (rel) {
@@ -836,6 +846,7 @@ export const useSchemaData = (viewMode: string) => {
       updateRelType,
       updateRelName,
       resetRelRouting,
+      setRelRouting,
       deleteRel,
     },
   };
