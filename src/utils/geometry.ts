@@ -23,18 +23,91 @@ const isVerticalSegmentColliding = (x: number, y1: number, y2: number, table: Ta
   const tableTop = table.y;
   const tableBottom = table.y + getTableHeight(table);
 
-  // Check X overlap: Is the vertical line within the table's width?
-  // We add a small buffer (5px) to avoid touching borders
   if (x < tableLeft + 5 || x > tableRight - 5) return false;
-
-  // Check Y overlap: Does the segment (y1 to y2) overlap with the table's height?
   const segTop = Math.min(y1, y2);
   const segBottom = Math.max(y1, y2);
-
-  // Intersection logic:
-  // The segment intersects if it starts above the bottom AND ends below the top
   return segTop < tableBottom && segBottom > tableTop;
 };
+
+// --- Spline Helpers ---
+function getSplinePath(points: { x: number; y: number }[]) {
+  if (points.length < 2) return '';
+
+  if (points.length === 2) {
+    return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
+  }
+
+  // Catmull-Rom to Cubic Bezier conversion
+  let d = `M ${points[0].x} ${points[0].y}`;
+  const k = 1;
+
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i - 1] || points[i];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2] || p2;
+
+    const cp1x = p1.x + ((p2.x - p0.x) / 6) * k;
+    const cp1y = p1.y + ((p2.y - p0.y) / 6) * k;
+
+    const cp2x = p2.x - ((p3.x - p1.x) / 6) * k;
+    const cp2y = p2.y - ((p3.y - p1.y) / 6) * k;
+
+    d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+  }
+
+  return d;
+}
+
+// --- Polyline Helper (Straight segments) ---
+function getPolylinePath(points: { x: number; y: number }[]) {
+  if (points.length < 2) return '';
+  return points.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(' ');
+}
+
+// Helper to find closest point on a line segment to a point P
+export function getClosestPointOnSegment(
+  p: { x: number; y: number },
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+) {
+  const atob = { x: b.x - a.x, y: b.y - a.y };
+  const atop = { x: p.x - a.x, y: p.y - a.y };
+  const lenSq = atob.x * atob.x + atob.y * atob.y;
+  let dot = atop.x * atob.x + atop.y * atob.y;
+  let t = Math.min(1, Math.max(0, dot / lenSq));
+  return {
+    x: a.x + atob.x * t,
+    y: a.y + atob.y * t,
+    t: t,
+  };
+}
+
+// Distance squared
+function distSq(p1: { x: number; y: number }, p2: { x: number; y: number }) {
+  return (p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y);
+}
+
+// Find index to insert new point
+export function getInsertIndex(
+  points: { x: number; y: number }[],
+  click: { x: number; y: number },
+) {
+  let minDist = Infinity;
+  let insertIdx = 1;
+
+  for (let i = 0; i < points.length - 1; i++) {
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const close = getClosestPointOnSegment(click, p1, p2);
+    const d = distSq(click, close);
+    if (d < minDist) {
+      minDist = d;
+      insertIdx = i + 1;
+    }
+  }
+  return insertIdx;
+}
 
 export const getConnectorPoints = (r: Relationship, tables: Table[]) => {
   const startTable = tables.find((t) => t.id === r.fromTable);
@@ -50,8 +123,6 @@ export const getConnectorPoints = (r: Relationship, tables: Table[]) => {
 
   // Dynamic curvature based on vertical distance
   const distY = Math.abs(endY - startY);
-  // Increase curvature factor for a "looser" feel, matching the user's sketch.
-  // Base 60, scale with distance, max 300.
   const curvature = Math.max(60, Math.min(300, distY * 0.2));
 
   const startLeft = startTable.x;
@@ -62,7 +133,6 @@ export const getConnectorPoints = (r: Relationship, tables: Table[]) => {
   const startH = getTableHeight(startTable);
   const endH = getTableHeight(endTable);
 
-  // Check for Vertical Gap
   const verticalGap = Math.max(
     0,
     endTable.y - (startTable.y + startH),
@@ -70,10 +140,6 @@ export const getConnectorPoints = (r: Relationship, tables: Table[]) => {
   );
   const hasSafeGap = verticalGap > 40;
 
-  // Heuristic: Check for horizontal overlap to determine if we should route around.
-  // To match the "green line" sketch (which crosses from Right to Left even when aligned),
-  // we significantly increase the overlap allowance when a vertical gap exists.
-  // This prioritizes S-shape (crossing) over C-shape (same side) for vertical layouts.
   const overlapAllowance = hasSafeGap ? TABLE_WIDTH + 200 : -60;
 
   const isStartLeftOfEnd = startRight - overlapAllowance < endLeft;
@@ -82,7 +148,6 @@ export const getConnectorPoints = (r: Relationship, tables: Table[]) => {
   let p1x, p1y, p2x, p2y, c1x, c1y, c2x, c2y;
 
   if (isStartLeftOfEnd) {
-    // Standard Right -> Left
     p1x = startRight;
     p1y = startY;
     p2x = endLeft;
@@ -93,7 +158,6 @@ export const getConnectorPoints = (r: Relationship, tables: Table[]) => {
     c2x = p2x - curvature;
     c2y = p2y;
   } else if (isStartRightOfEnd) {
-    // Standard Left -> Right
     p1x = startLeft;
     p1y = startY;
     p2x = endRight;
@@ -104,13 +168,10 @@ export const getConnectorPoints = (r: Relationship, tables: Table[]) => {
     c2x = p2x + curvature;
     c2y = p2y;
   } else {
-    // Close overlap without gap, or manual override situations
-    // Default to the closest sides (C-Shape)
     const leftDist = Math.abs(startLeft - endLeft);
     const rightDist = Math.abs(startRight - endRight);
 
     if (leftDist < rightDist) {
-      // Left side connection
       p1x = startLeft;
       p1y = startY;
       p2x = endLeft;
@@ -121,7 +182,6 @@ export const getConnectorPoints = (r: Relationship, tables: Table[]) => {
       c2x = p2x - curvature;
       c2y = p2y;
     } else {
-      // Right side connection
       p1x = startRight;
       p1y = startY;
       p2x = endRight;
@@ -163,7 +223,6 @@ export const getConnectorPoints = (r: Relationship, tables: Table[]) => {
     c2x = p2x + curvature;
   }
 
-  // Adjust self-reference loop if manual sides are same
   if (r.fromTable === r.toTable && r.sourceSide && r.targetSide && r.sourceSide === r.targetSide) {
     const loopOffset = 60;
     if (r.sourceSide === 'left') {
@@ -178,112 +237,42 @@ export const getConnectorPoints = (r: Relationship, tables: Table[]) => {
   return { p1x, p1y, p2x, p2y, c1x, c1y, c2x, c2y };
 };
 
-export const calculatePath = (
+// Return array of vertices that make up the path
+export const getRoutePoints = (
   r: Relationship,
   tables: Table[],
   style: 'curved' | 'orthogonal' = 'curved',
-): string => {
+): { x: number; y: number }[] => {
   const pts = getConnectorPoints(r, tables);
-  if (!pts) return '';
+  if (!pts) return [];
   const { p1x, p1y, p2x, p2y, c1x, c1y, c2x, c2y } = pts;
 
+  // Case 1: Manual Control Points
+  if (r.controlPoints && r.controlPoints.length > 0) {
+    return [{ x: p1x, y: p1y }, ...r.controlPoints, { x: p2x, y: p2y }];
+  }
+
+  // Case 2: Orthogonal (Quadratic) Automatic Routing
   if (style === 'orthogonal') {
     const dir1 = c1x > p1x ? 1 : -1;
     const dir2 = c2x > p2x ? 1 : -1;
-
-    // Check if both are pointing same direction (C-Shape)
     const isCShape = dir1 === dir2;
 
     if (isCShape) {
-      // C-Shape: Use a "rail" on the side
       const buffer = 40;
       let railX;
       if (dir1 === 1) {
-        // Right
         railX = Math.max(p1x, p2x) + buffer;
       } else {
-        // Left
         railX = Math.min(p1x, p2x) - buffer;
       }
-      return `M ${p1x} ${p1y} L ${railX} ${p1y} L ${railX} ${p2y} L ${p2x} ${p2y}`;
-    } else {
-      // S-Shape candidate
-      const midX = (p1x + p2x) / 2;
-
-      // ACCURATE COLLISION DETECTION
-      const startTable = tables.find((t) => t.id === r.fromTable);
-      const endTable = tables.find((t) => t.id === r.toTable);
-
-      let hasCollision = false;
-
-      if (startTable && isVerticalSegmentColliding(midX, p1y, p2y, startTable)) {
-        hasCollision = true;
-      }
-      if (!hasCollision && endTable && isVerticalSegmentColliding(midX, p1y, p2y, endTable)) {
-        hasCollision = true;
-      }
-
-      if (hasCollision) {
-        // Collision detected with the direct path.
-        // Try to find a path through the vertical gap between tables.
-
-        const buffer = 40;
-        const railX1 = p1x + dir1 * buffer;
-        const railX2 = p2x + dir2 * buffer;
-
-        // Determine if there is a gap
-        const t1 = startTable!;
-        const t2 = endTable!;
-        const t1Bottom = t1.y + getTableHeight(t1);
-        const t2Bottom = t2.y + getTableHeight(t2);
-
-        const isT1Above = t1Bottom < t2.y;
-        const isT2Above = t2Bottom < t1.y;
-
-        let railY;
-
-        if (isT1Above) {
-          // Gap exists: T1 is above T2. Route through middle of gap.
-          railY = (t1Bottom + t2.y) / 2;
-        } else if (isT2Above) {
-          // Gap exists: T2 is above T1. Route through middle of gap.
-          railY = (t2Bottom + t1.y) / 2;
-        } else {
-          // No gap (overlap or touching): Route around the bottom (Safety Rail)
-          const maxY = Math.max(t1Bottom, t2Bottom);
-          railY = maxY + 20;
-        }
-
-        return `M ${p1x} ${p1y} L ${railX1} ${p1y} L ${railX1} ${railY} L ${railX2} ${railY} L ${railX2} ${p2y} L ${p2x} ${p2y}`;
-      }
-
-      // Standard S-Shape (Safe diagonal)
-      return `M ${p1x} ${p1y} L ${midX} ${p1y} L ${midX} ${p2y} L ${p2x} ${p2y}`;
-    }
-  }
-
-  // Curved (Bezier)
-  return `M ${p1x} ${p1y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2x} ${p2y}`;
-};
-
-export const getCurveMidpoint = (
-  r: Relationship,
-  tables: Table[],
-  style: 'curved' | 'orthogonal' = 'curved',
-) => {
-  const pts = getConnectorPoints(r, tables);
-  if (!pts) return { x: 0, y: 0 };
-  const { p1x, p1y, p2x, p2y, c1x, c1y, c2x, c2y } = pts;
-
-  if (style === 'orthogonal') {
-    const dir1 = c1x > p1x ? 1 : -1;
-    const dir2 = c2x > p2x ? 1 : -1;
-    const isCShape = dir1 === dir2;
-
-    if (isCShape) {
-      const buffer = 40;
-      const railX = dir1 === 1 ? Math.max(p1x, p2x) + buffer : Math.min(p1x, p2x) - buffer;
-      return { x: railX, y: (p1y + p2y) / 2 };
+      // C-Shape Points
+      return [
+        { x: p1x, y: p1y },
+        { x: railX, y: p1y },
+        { x: railX, y: p2y },
+        { x: p2x, y: p2y },
+      ];
     } else {
       const midX = (p1x + p2x) / 2;
       const startTable = tables.find((t) => t.id === r.fromTable);
@@ -295,7 +284,9 @@ export const getCurveMidpoint = (
         hasCollision = true;
 
       if (hasCollision) {
-        // Calculate midpoint on the rail
+        const buffer = 40;
+        const railX1 = p1x + dir1 * buffer;
+        const railX2 = p2x + dir2 * buffer;
         const t1 = startTable!;
         const t2 = endTable!;
         const t1Bottom = t1.y + getTableHeight(t1);
@@ -308,18 +299,86 @@ export const getCurveMidpoint = (
         else if (isT2Above) railY = (t2Bottom + t1.y) / 2;
         else railY = Math.max(t1Bottom, t2Bottom) + 20;
 
-        // Midpoint is the center of the horizontal segment crossing the gap
-        const buffer = 40;
-        const railX1 = p1x + dir1 * buffer;
-        const railX2 = p2x + dir2 * buffer;
-        return { x: (railX1 + railX2) / 2, y: railY };
+        // Z-Shape around collision
+        return [
+          { x: p1x, y: p1y },
+          { x: railX1, y: p1y },
+          { x: railX1, y: railY },
+          { x: railX2, y: railY },
+          { x: railX2, y: p2y },
+          { x: p2x, y: p2y },
+        ];
       }
-
-      return { x: midX, y: (p1y + p2y) / 2 };
+      // Simple S-Shape
+      return [
+        { x: p1x, y: p1y },
+        { x: midX, y: p1y },
+        { x: midX, y: p2y },
+        { x: p2x, y: p2y },
+      ];
     }
   }
 
-  // Bezier midpoint approximation
+  // Case 3: Curved Automatic (Bezier) - Just return anchors
+  // Typically bezier control points are not "vertices" on the line, so we just return start/end
+  return [
+    { x: p1x, y: p1y },
+    { x: p2x, y: p2y },
+  ];
+};
+
+export const calculatePath = (
+  r: Relationship,
+  tables: Table[],
+  style: 'curved' | 'orthogonal' = 'curved',
+): string => {
+  const pts = getConnectorPoints(r, tables);
+  if (!pts) return '';
+
+  // For Orthogonal (Automatic or Manual) and Manual Curved, use the route points
+  if (style === 'orthogonal' || (r.controlPoints && r.controlPoints.length > 0)) {
+    const points = getRoutePoints(r, tables, style);
+    if (style === 'orthogonal') {
+      return getPolylinePath(points);
+    } else {
+      return getSplinePath(points);
+    }
+  }
+
+  // Fallback for Automatic Curved (Original Bezier Logic)
+  // We keep this separate because getRoutePoints doesn't return bezier handles
+  const { p1x, p1y, p2x, p2y, c1x, c1y, c2x, c2y } = pts;
+  return `M ${p1x} ${p1y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2x} ${p2y}`;
+};
+
+export const getCurveMidpoint = (
+  r: Relationship,
+  tables: Table[],
+  style: 'curved' | 'orthogonal' = 'curved',
+) => {
+  // If we have route points (Manual or Orthogonal), find geometric center of path approximation
+  const points = getRoutePoints(r, tables, style);
+
+  // For orthogonal or manual, pick the middle point or middle segment center
+  if (points.length > 2) {
+    // Quick midpoint: Picking the middle vertex or middle segment
+    if (points.length % 2 !== 0) {
+      // Odd number of points, pick the middle one
+      return points[Math.floor(points.length / 2)];
+    } else {
+      // Even number, pick midpoint of middle segment
+      const midIdx = Math.floor(points.length / 2);
+      const p1 = points[midIdx - 1];
+      const p2 = points[midIdx];
+      return { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+    }
+  }
+
+  // Fallback for default bezier curve (Simple Start/End)
+  const pts = getConnectorPoints(r, tables);
+  if (!pts) return { x: 0, y: 0 };
+  const { p1x, p1y, p2x, p2y, c1x, c1y, c2x, c2y } = pts;
+
   const t = 0.5;
   const mt = 1 - t;
   const x = mt * mt * mt * p1x + 3 * mt * mt * t * c1x + 3 * mt * t * t * c2x + t * t * t * p2x;

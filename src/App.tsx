@@ -180,6 +180,9 @@ const App = () => {
             onMoveColumn={actions.moveColumn}
             onDeleteColumn={actions.deleteColumn}
             onConfigTable={handleConfigTable}
+            onAddControlPoint={actions.addControlPoint}
+            onUpdateControlPoint={actions.updateControlPoint}
+            onDeleteControlPoint={actions.deleteControlPoint}
           />
 
           {/* Floating Action Buttons (FABs) */}

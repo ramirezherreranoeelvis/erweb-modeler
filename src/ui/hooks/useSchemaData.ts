@@ -317,6 +317,7 @@ export const useSchemaData = (viewMode: string) => {
   }, [tables, relationships, viewMode]);
 
   // --- CRUD Operations ---
+  // ... (keeping previous CRUD ops same)
 
   const applyConnection = (
     sourceTId: string,
@@ -646,7 +647,7 @@ export const useSchemaData = (viewMode: string) => {
       return newTables;
     });
 
-    // Defer propagation to allow render cycle to finish if needed, or just run it
+    // Defer propagation
     setTimeout(() => {
       if (updatedColumnData) {
         propagateColumnChanges(tableId, colId, updatedColumnData);
@@ -703,43 +704,25 @@ export const useSchemaData = (viewMode: string) => {
 
   const deleteColumn = (tableId: string, colId: string) => {
     if (tableId.startsWith('virt_')) return;
-
-    // 1. Identify relationships where this column is the source (Origin)
     const relationshipsAsSource = relationships.filter(
       (r) => r.fromTable === tableId && r.fromCol === colId,
     );
-
-    // 2. Identify relationships where this column is the target (Destination)
-    // We remove these relationships too, to avoid dangling references,
-    // but we usually don't delete the source column in this case (Standard SQL behavior).
     const relationshipsAsTarget = relationships.filter(
       (r) => r.toTable === tableId && r.toCol === colId,
     );
-
     const relsToDelete = [...relationshipsAsSource, ...relationshipsAsTarget];
     const relIdsToDelete = new Set(relsToDelete.map((r) => r.id));
-
-    // 3. Identify FK columns that should be deleted (Cascading delete)
     const columnsToDelete: { tableId: string; colId: string }[] = [];
-
-    // Add the primary column being deleted
     columnsToDelete.push({ tableId, colId });
-
-    // Add the destination columns (FKs) for relationships where we are the source
     relationshipsAsSource.forEach((r) => {
-      // For N:M, there are no physical columns in the other table to delete usually,
-      // but for 1:N / 1:1, we delete the FK column as requested.
       if (r.type !== 'N:M') {
         columnsToDelete.push({ tableId: r.toTable, colId: r.toCol });
       }
     });
 
-    // 4. Update Tables State
     setTables((prevTables) =>
       prevTables.map((t) => {
-        // Check if this table has columns to delete
         const colsToRemove = columnsToDelete.filter((del) => del.tableId === t.id);
-
         if (colsToRemove.length > 0) {
           const idsToRemove = new Set(colsToRemove.map((c) => c.colId));
           return {
@@ -750,8 +733,6 @@ export const useSchemaData = (viewMode: string) => {
         return t;
       }),
     );
-
-    // 5. Update Relationships State
     if (relIdsToDelete.size > 0) {
       setRelationships((prev) => prev.filter((r) => !relIdsToDelete.has(r.id)));
     }
@@ -760,9 +741,8 @@ export const useSchemaData = (viewMode: string) => {
   const updateRelType = (relId: string, type: any) => {
     const rel = relationships.find((r) => r.id === relId);
     if (!rel) return;
-
     setRelationships(relationships.map((r) => (r.id === relId ? { ...r, type } : r)));
-
+    // ... propagation logic ...
     if (type === '1:1' || type === '1:N' || type === '1:0..N' || type === '1:0..1') {
       setTables((prevTables) =>
         prevTables.map((t) => {
@@ -794,7 +774,9 @@ export const useSchemaData = (viewMode: string) => {
   const resetRelRouting = (relId: string) => {
     setRelationships((prev) =>
       prev.map((r) =>
-        r.id === relId ? { ...r, sourceSide: undefined, targetSide: undefined } : r,
+        r.id === relId
+          ? { ...r, sourceSide: undefined, targetSide: undefined, controlPoints: undefined }
+          : r,
       ),
     );
   };
@@ -827,6 +809,56 @@ export const useSchemaData = (viewMode: string) => {
     setRelationships(relationships.filter((r) => r.id !== relId));
   };
 
+  // --- Manual Control Points ---
+
+  const addControlPoint = (relId: string, x: number, y: number, index?: number) => {
+    setRelationships((prev) =>
+      prev.map((r) => {
+        if (r.id === relId) {
+          const currentPoints = r.controlPoints || [];
+          let newPoints = [...currentPoints];
+          if (index !== undefined && index >= 0 && index <= currentPoints.length) {
+            newPoints.splice(index, 0, { x, y });
+          } else {
+            newPoints.push({ x, y });
+          }
+          return {
+            ...r,
+            controlPoints: newPoints,
+          };
+        }
+        return r;
+      }),
+    );
+  };
+
+  const updateControlPoint = (relId: string, index: number, x: number, y: number) => {
+    setRelationships((prev) =>
+      prev.map((r) => {
+        if (r.id === relId && r.controlPoints) {
+          const newPoints = [...r.controlPoints];
+          if (newPoints[index]) {
+            newPoints[index] = { x, y };
+          }
+          return { ...r, controlPoints: newPoints };
+        }
+        return r;
+      }),
+    );
+  };
+
+  const deleteControlPoint = (relId: string, index: number) => {
+    setRelationships((prev) =>
+      prev.map((r) => {
+        if (r.id === relId && r.controlPoints) {
+          const newPoints = r.controlPoints.filter((_, i) => i !== index);
+          return { ...r, controlPoints: newPoints.length > 0 ? newPoints : undefined };
+        }
+        return r;
+      }),
+    );
+  };
+
   return {
     tables,
     setTables,
@@ -848,6 +880,9 @@ export const useSchemaData = (viewMode: string) => {
       resetRelRouting,
       setRelRouting,
       deleteRel,
+      addControlPoint,
+      updateControlPoint,
+      deleteControlPoint,
     },
   };
 };

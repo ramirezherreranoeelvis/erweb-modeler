@@ -13,4 +13,5 @@ export interface Relationship {
   y?: number;
   sourceSide?: 'left' | 'right';
   targetSide?: 'left' | 'right';
+  controlPoints?: { x: number; y: number }[];
 }
