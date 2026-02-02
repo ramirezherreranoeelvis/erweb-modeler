@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CopyPlus } from 'lucide-react';
 import type { Table, ViewOptions, TempConnection } from '../../types';
 import TableRow from './TableRow';
+import { DbEngine } from '../../../utils/dbDataTypes';
 
 interface TableBodyProps {
   table: Table;
@@ -11,6 +12,7 @@ interface TableBodyProps {
   isSelected: boolean;
   isConnecting: boolean;
   tempConnection: TempConnection | null;
+  dbEngine: DbEngine;
   onUpdateColumn: (tableId: string, colId: string, field: string, value: any) => void;
   onDeleteColumn: (tableId: string, colId: string) => void;
   onMoveColumn: (tableId: string, fromIndex: number, toIndex: number) => void;
@@ -37,6 +39,7 @@ const TableBody: React.FC<TableBodyProps> = ({
   isSelected,
   isConnecting,
   tempConnection,
+  dbEngine,
   onUpdateColumn,
   onDeleteColumn,
   onMoveColumn,
@@ -98,6 +101,7 @@ const TableBody: React.FC<TableBodyProps> = ({
           draggedIndex={draggedIndex}
           editingCell={editingCell}
           editValue={editValue}
+          dbEngine={dbEngine}
           onDragStart={handleDragStart}
           onDragOver={(e) => {
             e.preventDefault();

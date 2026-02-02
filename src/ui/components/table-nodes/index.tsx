@@ -4,6 +4,7 @@ import type { Table, ViewOptions, TempConnection } from '../../types';
 import { TABLE_WIDTH } from '../../../utils/geometry';
 import TableHeader from './TableHeader';
 import TableBody from './TableBody';
+import { DbEngine } from '../../../utils/dbDataTypes';
 
 interface TableNodeProps {
   table: Table;
@@ -14,6 +15,7 @@ interface TableNodeProps {
   isConnecting: boolean;
   tempConnection: TempConnection | null;
   zoom: number;
+  dbEngine: DbEngine;
   globalEditable: boolean;
   onPointerDown: (e: React.PointerEvent, id: string) => void;
   onStartConnection: (
@@ -41,6 +43,7 @@ const TableNode: React.FC<TableNodeProps> = ({
   isConnecting,
   tempConnection,
   globalEditable,
+  dbEngine,
   onPointerDown,
   onStartConnection,
   onCompleteConnection,
@@ -87,6 +90,7 @@ const TableNode: React.FC<TableNodeProps> = ({
         isSelected={isSelected}
         isConnecting={isConnecting}
         tempConnection={tempConnection}
+        dbEngine={dbEngine}
         onUpdateColumn={onUpdateColumn}
         onDeleteColumn={onDeleteColumn}
         onMoveColumn={onMoveColumn}

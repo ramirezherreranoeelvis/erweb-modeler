@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Settings, X, Lock, Key, Trash2, GripVertical } from 'lucide-react';
 import type { Table, Relationship } from '../types';
+import type { DbEngine } from '../../utils/dbDataTypes';
+import { DB_DATA_TYPES, shouldShowLength } from '../../utils/dbDataTypes';
 
 interface PropertiesPanelProps {
   selectedTable: Table;
@@ -13,6 +15,7 @@ interface PropertiesPanelProps {
   onMoveColumn: (tableId: string, fromIndex: number, toIndex: number) => void;
   width: number;
   onWidthChange: (width: number) => void;
+  dbEngine: DbEngine;
 }
 
 const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
@@ -26,8 +29,12 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   onMoveColumn,
   width,
   onWidthChange,
+  dbEngine,
 }) => {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  // Get available types based on selected engine
+  const availableTypes = DB_DATA_TYPES[dbEngine] || DB_DATA_TYPES['mysql'];
 
   return (
     <aside
@@ -112,10 +119,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               const isLinkedFk = relationships.some(
                 (r) => r.toTable === selectedTable.id && r.toCol === col.id,
               );
-              // Logic to determine if Length field should be visible
-              const showLength = !['INT', 'BIGINT', 'TEXT', 'DATETIME', 'BOOLEAN', 'DATE'].includes(
-                col.type,
-              );
+              const showLength = shouldShowLength(col.type);
 
               return (
                 <div
@@ -165,7 +169,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                     </div>
 
                     <div className="flex gap-2 items-end">
-                      <div className="w-16 shrink-0 relative">
+                      <div className="w-24 shrink-0 relative">
                         <label className="text-[9px] text-slate-400 font-bold mb-0.5 flex items-center gap-1">
                           Type {isLinkedFk && <Lock size={8} className="text-amber-500" />}
                         </label>
@@ -177,15 +181,11 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                           }
                           className={`w-full text-[10px] py-1.5 px-0.5 border border-slate-300 dark:border-slate-600 rounded text-slate-700 dark:text-slate-200 outline-none ${isLinkedFk ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'bg-white dark:bg-slate-800'}`}
                         >
-                          <option value="INT">INT</option>
-                          <option value="BIGINT">BIGINT</option>
-                          <option value="VARCHAR">VARCHAR</option>
-                          <option value="CHAR">CHAR</option>
-                          <option value="TEXT">TEXT</option>
-                          <option value="DATETIME">DATETIME</option>
-                          <option value="DATE">DATE</option>
-                          <option value="DECIMAL">DECIMAL</option>
-                          <option value="BOOLEAN">BOOLEAN</option>
+                          {availableTypes.map((t, idx) => (
+                            <option key={`${t}-${idx}`} value={t}>
+                              {t}
+                            </option>
+                          ))}
                         </select>
                       </div>
 
@@ -195,7 +195,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                             Len
                           </label>
                           <input
-                            placeholder={col.type === 'VARCHAR' ? '255' : ''}
+                            placeholder={col.type.includes('CHAR') ? '255' : ''}
                             value={col.length}
                             disabled={isLinkedFk}
                             onChange={(e) =>

@@ -1,9 +1,12 @@
 import React from 'react';
-import { Database, ZoomIn, ZoomOut, Save, Moon, Sun, Menu } from 'lucide-react';
-
+import { Database, ZoomIn, ZoomOut, Save, Moon, Sun, Menu, Server } from 'lucide-react';
+import { DB_ENGINES } from '../../utils/dbDataTypes';
+import type { DbEngine } from '../../utils/dbDataTypes';
 interface ToolbarProps {
   viewMode: string;
   setViewMode: (mode: string) => void;
+  dbEngine: DbEngine;
+  setDbEngine: (engine: DbEngine) => void;
   zoom: number;
   setZoom: React.Dispatch<React.SetStateAction<number>>;
   theme: 'light' | 'dark';
@@ -14,6 +17,8 @@ interface ToolbarProps {
 const Toolbar: React.FC<ToolbarProps> = ({
   viewMode,
   setViewMode,
+  dbEngine,
+  setDbEngine,
   zoom,
   setZoom,
   theme,
@@ -45,19 +50,41 @@ const Toolbar: React.FC<ToolbarProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
-        <button
-          onClick={() => setViewMode('logical')}
-          className={`px-2 sm:px-4 py-1.5 text-xs font-bold rounded shadow-sm transition-all ${viewMode === 'logical' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
-        >
-          Logical
-        </button>
-        <button
-          onClick={() => setViewMode('physical')}
-          className={`px-2 sm:px-4 py-1.5 text-xs font-bold rounded shadow-sm transition-all ${viewMode === 'physical' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
-        >
-          Physical
-        </button>
+      <div className="flex items-center gap-2">
+        {/* DB Engine Selector */}
+        <div className="flex items-center gap-2 px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded border border-slate-200 dark:border-slate-600 max-w-[120px] sm:max-w-none">
+          <Server size={14} className="text-slate-500 dark:text-slate-400 shrink-0" />
+          <select
+            value={dbEngine}
+            onChange={(e) => setDbEngine(e.target.value as DbEngine)}
+            className="bg-transparent text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer w-full"
+          >
+            {DB_ENGINES.map((engine) => (
+              <option
+                key={engine.value}
+                value={engine.value}
+                className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+              >
+                {engine.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
+          <button
+            onClick={() => setViewMode('logical')}
+            className={`px-2 sm:px-4 py-1.5 text-xs font-bold rounded shadow-sm transition-all ${viewMode === 'logical' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+          >
+            Logical
+          </button>
+          <button
+            onClick={() => setViewMode('physical')}
+            className={`px-2 sm:px-4 py-1.5 text-xs font-bold rounded shadow-sm transition-all ${viewMode === 'physical' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+          >
+            Physical
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">

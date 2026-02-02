@@ -1,6 +1,7 @@
 import React from 'react';
 import { Key, Trash2, GripVertical } from 'lucide-react';
 import type { Column, ViewOptions } from '../../types';
+import { DbEngine, DB_DATA_TYPES, shouldShowLength } from '../../../utils/dbDataTypes';
 
 interface TableRowProps {
   col: Column;
@@ -14,6 +15,7 @@ interface TableRowProps {
   draggedIndex: number | null;
   editingCell: { colId: string; field: 'name' | 'type' | 'length' } | null;
   editValue: string;
+  dbEngine: DbEngine;
   onDragStart: (e: React.DragEvent, index: number) => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent, index: number) => void;
@@ -44,6 +46,7 @@ const TableRow: React.FC<TableRowProps> = ({
   draggedIndex,
   editingCell,
   editValue,
+  dbEngine,
   onDragStart,
   onDragOver,
   onDrop,
@@ -55,6 +58,11 @@ const TableRow: React.FC<TableRowProps> = ({
   onCancelEdit,
   onDeleteColumn,
 }) => {
+  // Get available types based on selected engine
+  const availableTypes = DB_DATA_TYPES[dbEngine] || DB_DATA_TYPES['mysql'];
+  
+  const showLength = shouldShowLength(col.type);
+
   return (
     <div
       draggable={isLocked && !isConnecting}
@@ -160,18 +168,8 @@ const TableRow: React.FC<TableRowProps> = ({
                   onMouseDown={(e) => e.stopPropagation()}
                   className="text-[9px] p-0 border border-blue-300 rounded outline-none bg-white dark:bg-slate-700 dark:text-white"
                 >
-                  {[
-                    'INT',
-                    'BIGINT',
-                    'VARCHAR',
-                    'CHAR',
-                    'TEXT',
-                    'DATETIME',
-                    'DATE',
-                    'DECIMAL',
-                    'BOOLEAN',
-                  ].map((t) => (
-                    <option key={t} value={t}>
+                  {availableTypes.map((t, idx) => (
+                    <option key={`${t}-${idx}`} value={t}>
                       {t}
                     </option>
                   ))}
@@ -204,22 +202,16 @@ const TableRow: React.FC<TableRowProps> = ({
                     )
                   </span>
                 ) : (
-                  (col.length || ['VARCHAR', 'CHAR', 'DECIMAL'].includes(col.type)) && (
+                  (col.length || showLength) && (
                     <span
                       className={`text-slate-300 dark:text-slate-500 ${
-                        !['INT', 'BIGINT', 'TEXT', 'DATETIME', 'BOOLEAN', 'DATE'].includes(
-                          col.type,
-                        )
+                         showLength
                           ? 'cursor-pointer hover:text-blue-400 dark:hover:text-blue-400'
                           : ''
                       }`}
                       onDoubleClick={(e) => {
                         e.stopPropagation();
-                        if (
-                          !['INT', 'BIGINT', 'TEXT', 'DATETIME', 'BOOLEAN', 'DATE'].includes(
-                            col.type,
-                          )
-                        ) {
+                        if (showLength) {
                           onStartEditing(col.id, 'length', col.length);
                         }
                       }}

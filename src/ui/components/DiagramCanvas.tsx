@@ -19,6 +19,7 @@ import {
   getColumnRelativeY,
 } from '../../utils/geometry';
 import TableNode from './table-nodes';
+import type { DbEngine } from '../../utils/dbDataTypes';
 
 interface DiagramCanvasProps {
   // Data State
@@ -41,6 +42,7 @@ interface DiagramCanvasProps {
   viewOptions: ViewOptions;
   viewMode: string;
   theme: 'light' | 'dark';
+  dbEngine: DbEngine;
   globalEditable: boolean;
 
   // UI Setters
@@ -88,6 +90,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
   viewOptions,
   viewMode,
   theme,
+  dbEngine,
   globalEditable,
   setSelectedId,
   setIsPropertiesPanelOpen,
@@ -220,9 +223,14 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
     currentY: number,
   ) => {
     e.stopPropagation();
-    // REMOVED e.preventDefault() to allow double-click events to fire on the circle
+    // Force blur any active input (like table name edit) to ensure Delete key is captured by window
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
 
     setRelMenu(null);
+    setIsPropertiesPanelOpen(false); // Close panel to reduce distraction and input focus risk
+    setSelectedId(null); // Deselect table
 
     if (!mainRef.current) return;
 
@@ -1132,6 +1140,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
             isConnecting={isConnecting}
             tempConnection={tempConnection}
             zoom={zoom}
+            dbEngine={dbEngine}
             globalEditable={globalEditable}
             onPointerDown={handleTablePointerDown}
             onStartConnection={startConnection}

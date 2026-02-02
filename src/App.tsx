@@ -8,6 +8,7 @@ import PropertiesPanel from './ui/components/PropertiesPanel';
 import WarningModal from './ui/components/WarningModal';
 import DiagramCanvas from './ui/components/DiagramCanvas';
 import RelationshipMenu from './ui/components/RelationshipMenu';
+import type { DbEngine } from './utils/dbDataTypes';
 
 const App = () => {
   // --- Theme State ---
@@ -52,12 +53,13 @@ const App = () => {
   });
 
   const [viewMode, setViewMode] = useState<string>('physical');
+  const [dbEngine, setDbEngine] = useState<DbEngine>('mysql');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isPropertiesPanelOpen, setIsPropertiesPanelOpen] = useState(false);
   const [globalEditable, setGlobalEditable] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(300);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  
+
   // UI State
   const [zoom, setZoom] = useState<number>(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -67,14 +69,14 @@ const App = () => {
   const [warningModal, setWarningModal] = useState<WarningData | null>(null);
 
   // --- Logic & Data ---
-  const { 
-    tables, 
-    setTables, 
-    relationships, 
-    setRelationships, 
-    viewTables, 
-    viewRelationships, 
-    actions 
+  const {
+    tables,
+    setTables,
+    relationships,
+    setRelationships,
+    viewTables,
+    viewRelationships,
+    actions,
   } = useSchemaData(viewMode);
 
   const handleConfigTable = (id: string) => {
@@ -87,7 +89,7 @@ const App = () => {
   // Active Relationship for Menu
   const activeRel = useMemo(
     () => (relMenu ? relationships.find((r) => r.id === relMenu.id) : null),
-    [relMenu, relationships]
+    [relMenu, relationships],
   );
 
   return (
@@ -99,8 +101,8 @@ const App = () => {
         onClick={() => setRelMenu(null)}
       >
         {warningModal && (
-          <WarningModal 
-            data={warningModal} 
+          <WarningModal
+            data={warningModal}
             onCancel={() => setWarningModal(null)}
             onConfirm={() => {
               actions.applyConnection(
@@ -117,6 +119,8 @@ const App = () => {
         <Toolbar
           viewMode={viewMode}
           setViewMode={setViewMode}
+          dbEngine={dbEngine}
+          setDbEngine={setDbEngine}
           zoom={zoom}
           setZoom={setZoom}
           theme={theme}
@@ -137,10 +141,10 @@ const App = () => {
             globalEditable={globalEditable}
             setGlobalEditable={setGlobalEditable}
             onAddTable={() => {
-               setIsSidebarOpen(false);
-               const newId = actions.addTable(sidebarWidth, pan, zoom, selectedId);
-               setSelectedId(newId);
-               setIsPropertiesPanelOpen(true);
+              setIsSidebarOpen(false);
+              const newId = actions.addTable(sidebarWidth, pan, zoom, selectedId);
+              setSelectedId(newId);
+              setIsPropertiesPanelOpen(true);
             }}
             onDeleteTable={() => {
               actions.deleteTable(selectedId);
@@ -166,6 +170,7 @@ const App = () => {
             viewOptions={viewOptions}
             viewMode={viewMode}
             theme={theme}
+            dbEngine={dbEngine}
             globalEditable={globalEditable}
             setSelectedId={setSelectedId}
             setIsPropertiesPanelOpen={setIsPropertiesPanelOpen}
@@ -190,9 +195,9 @@ const App = () => {
           <div className="md:hidden fixed bottom-6 right-6 z-40">
             <button
               onClick={() => {
-                 const newId = actions.addTable(0, pan, zoom, null);
-                 setSelectedId(newId);
-                 setIsPropertiesPanelOpen(true);
+                const newId = actions.addTable(0, pan, zoom, null);
+                setSelectedId(newId);
+                setIsPropertiesPanelOpen(true);
               }}
               className="w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
               title="Add New Table"
@@ -225,20 +230,20 @@ const App = () => {
               currentName={activeRel.name}
               onUpdateName={(name) => actions.updateRelName(activeRel.id, name)}
               onUpdateType={(type) => {
-                 actions.updateRelType(activeRel.id, type);
-                 setRelMenu(null);
+                actions.updateRelType(activeRel.id, type);
+                setRelMenu(null);
               }}
               onResetRouting={() => {
-                 actions.resetRelRouting(activeRel.id);
-                 setRelMenu(null);
+                actions.resetRelRouting(activeRel.id);
+                setRelMenu(null);
               }}
               onSetRouting={(source, target) => {
-                 actions.setRelRouting(activeRel.id, source, target);
-                 setRelMenu(null);
+                actions.setRelRouting(activeRel.id, source, target);
+                setRelMenu(null);
               }}
               onDelete={() => {
-                 actions.deleteRel(activeRel.id);
-                 setRelMenu(null);
+                actions.deleteRel(activeRel.id);
+                setRelMenu(null);
               }}
             />
           )}
@@ -250,6 +255,7 @@ const App = () => {
                 onWidthChange={setSidebarWidth}
                 selectedTable={selectedTable}
                 relationships={relationships}
+                dbEngine={dbEngine}
                 onClose={() => setIsPropertiesPanelOpen(false)}
                 onUpdateTable={actions.updateTable}
                 onAddColumn={actions.addColumn}
