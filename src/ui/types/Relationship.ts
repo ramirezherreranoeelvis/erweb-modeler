@@ -1,3 +1,4 @@
+
 export interface Relationship {
   id: string;
   name: string;
@@ -7,7 +8,7 @@ export interface Relationship {
   toTable: string;
   toCol: string;
   type: '1:1' | '1:N' | 'N:1' | 'N:M' | '1:0..N' | '1:0..1';
-  virtualColNames?: Record<string, string>;
+  virtualColNames?: Record<string, string>; 
   isManuallyEditable?: boolean;
   x?: number;
   y?: number;

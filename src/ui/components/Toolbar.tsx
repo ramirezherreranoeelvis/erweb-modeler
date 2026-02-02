@@ -29,7 +29,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
         >
           <Menu size={20} />
         </button>
-        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-1.5 rounded text-white shadow-sm">
+        <div className="bg-linear-to-br from-blue-600 to-indigo-700 p-1.5 rounded text-white shadow-sm">
           <Database size={20} />
         </div>
         <div>
@@ -85,7 +85,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
             <ZoomIn size={16} />
           </button>
         </div>
-        <button className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 dark:bg-blue-600 hover:bg-slate-900 dark:hover:bg-blue-700 text-white rounded shadow text-xs font-bold transition-colors">
+        <button className="hidden flex items-center gap-2 px-3 py-1.5 bg-slate-800 dark:bg-blue-600 hover:bg-slate-900 dark:hover:bg-blue-700 text-white rounded shadow text-xs font-bold transition-colors">
           <Save size={14} />
           <span className="hidden sm:inline">Export SQL</span>
         </button>

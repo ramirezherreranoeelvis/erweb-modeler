@@ -207,7 +207,9 @@ const TableRow: React.FC<TableRowProps> = ({
                   (col.length || ['VARCHAR', 'CHAR', 'DECIMAL'].includes(col.type)) && (
                     <span
                       className={`text-slate-300 dark:text-slate-500 ${
-                        !['INT', 'BIGINT', 'TEXT', 'DATETIME', 'BOOLEAN', 'DATE'].includes(col.type)
+                        !['INT', 'BIGINT', 'TEXT', 'DATETIME', 'BOOLEAN', 'DATE'].includes(
+                          col.type,
+                        )
                           ? 'cursor-pointer hover:text-blue-400 dark:hover:text-blue-400'
                           : ''
                       }`}

@@ -87,7 +87,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
 
-      <div className="h-[1px] bg-slate-200 dark:bg-slate-700"></div>
+      <div className="h-px bg-slate-200 dark:bg-slate-700"></div>
       <div>
         <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-1">
           <Eye size={12} /> View Options

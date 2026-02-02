@@ -1,10 +1,49 @@
 import type { Table, Relationship } from '../ui/types';
 import { TABLE_WIDTH } from './constants';
-import {
-  getColumnRelativeY,
-  getTableHeight,
-  isVerticalSegmentColliding,
-} from './tableCalculations';
+import { getColumnRelativeY, isVerticalSegmentColliding } from './tableCalculations';
+
+// --- Helper: Remove collinear points and handle overlapping backtracking ---
+// This cleans up the line. If point B is between A and C in a straight line, remove B.
+// Also handles "folding" where the line goes A -> B -> A (backtracking).
+function simplifyOrthogonalPoints(points: { x: number; y: number }[]) {
+  if (points.length < 3) return points;
+
+  // 1. First pass: Remove very close points (duplicates)
+  const uniquePoints = points.filter((p, i) => {
+    if (i === 0) return true;
+    const prev = points[i - 1];
+    return Math.hypot(p.x - prev.x, p.y - prev.y) > 5;
+  });
+
+  if (uniquePoints.length < 2) return uniquePoints;
+
+  const result = [uniquePoints[0]];
+
+  for (let i = 1; i < uniquePoints.length - 1; i++) {
+    const prev = result[result.length - 1];
+    const curr = uniquePoints[i];
+    const next = uniquePoints[i + 1];
+
+    // Check collinearity (Horizontal or Vertical alignment)
+    const isHorizontal = Math.abs(prev.y - curr.y) < 2 && Math.abs(curr.y - next.y) < 2;
+    const isVertical = Math.abs(prev.x - curr.x) < 2 && Math.abs(curr.x - next.x) < 2;
+
+    // Check for backtracking (folding back on itself)
+    // e.g. x: 100 -> x: 200 -> x: 150. This creates a mess.
+    // We generally want to keep corners, but strictly collinear midpoints should go.
+
+    if (isHorizontal || isVertical) {
+      // It's collinear, so 'curr' is redundant between 'prev' and 'next'
+      // Skip adding 'curr'
+      continue;
+    }
+
+    result.push(curr);
+  }
+
+  result.push(uniquePoints[uniquePoints.length - 1]);
+  return result;
+}
 
 // --- Spline Helpers ---
 function getSplinePath(points: { x: number; y: number }[]) {
@@ -51,35 +90,29 @@ export const getConnectorPoints = (r: Relationship, tables: Table[]) => {
   const startYRel = getColumnRelativeY(startTable, r.fromCol);
   const endYRel = getColumnRelativeY(endTable, r.toCol);
 
-  const startY = startTable.y + startYRel;
-  const endY = endTable.y + endYRel;
+  let startY = startTable.y + startYRel;
+  let endY = endTable.y + endYRel;
+
+  // Snap Y if very close to avoid micro-steps
+  if (Math.abs(startY - endY) < 5) {
+    endY = startY;
+  }
 
   // Dynamic curvature based on vertical distance
   const distY = Math.abs(endY - startY);
-  const curvature = Math.max(60, Math.min(300, distY * 0.2));
+  const curvature = Math.max(40, Math.min(100, distY * 0.2));
 
   const startLeft = startTable.x;
   const startRight = startTable.x + TABLE_WIDTH;
   const endLeft = endTable.x;
   const endRight = endTable.x + TABLE_WIDTH;
 
-  const startH = getTableHeight(startTable);
-  const endH = getTableHeight(endTable);
-
-  const verticalGap = Math.max(
-    0,
-    endTable.y - (startTable.y + startH),
-    startTable.y - (endTable.y + endH),
-  );
-  const hasSafeGap = verticalGap > 40;
-
-  const overlapAllowance = hasSafeGap ? TABLE_WIDTH + 200 : -60;
-
-  const isStartLeftOfEnd = startRight - overlapAllowance < endLeft;
-  const isStartRightOfEnd = startLeft > endRight - overlapAllowance;
+  const isStartLeftOfEnd = startRight < endLeft;
+  const isStartRightOfEnd = startLeft > endRight;
 
   let p1x, p1y, p2x, p2y, c1x, c1y, c2x, c2y;
 
+  // Standard Logic
   if (isStartLeftOfEnd) {
     p1x = startRight;
     p1y = startY;
@@ -101,6 +134,7 @@ export const getConnectorPoints = (r: Relationship, tables: Table[]) => {
     c2x = p2x + curvature;
     c2y = p2y;
   } else {
+    // Overlap horizontal
     const leftDist = Math.abs(startLeft - endLeft);
     const rightDist = Math.abs(startRight - endRight);
 
@@ -156,17 +190,6 @@ export const getConnectorPoints = (r: Relationship, tables: Table[]) => {
     c2x = p2x + curvature;
   }
 
-  if (r.fromTable === r.toTable && r.sourceSide && r.targetSide && r.sourceSide === r.targetSide) {
-    const loopOffset = 60;
-    if (r.sourceSide === 'left') {
-      c1x = startLeft - loopOffset;
-      c2x = endLeft - loopOffset;
-    } else {
-      c1x = startRight + loopOffset;
-      c2x = endRight + loopOffset;
-    }
-  }
-
   return { p1x, p1y, p2x, p2y, c1x, c1y, c2x, c2y };
 };
 
@@ -178,21 +201,46 @@ export const getRoutePoints = (
 ): { x: number; y: number }[] => {
   const pts = getConnectorPoints(r, tables);
   if (!pts) return [];
-  const { p1x, p1y, p2x, p2y, c1x, c1y, c2x, c2y } = pts;
+  const { p1x, p1y, p2x, p2y } = pts;
 
   // Case 1: Manual Control Points
   if (r.controlPoints && r.controlPoints.length > 0) {
+    // If Orthogonal style, inject phantom corners to keep lines straight
+    if (style === 'orthogonal') {
+      const rawPoints = [{ x: p1x, y: p1y }, ...r.controlPoints, { x: p2x, y: p2y }];
+      const orthoPoints: { x: number; y: number }[] = [];
+
+      for (let i = 0; i < rawPoints.length - 1; i++) {
+        const curr = rawPoints[i];
+        const next = rawPoints[i + 1];
+
+        orthoPoints.push(curr);
+
+        // If not aligned horizontally or vertically, add a corner
+        if (Math.abs(curr.x - next.x) > 2 && Math.abs(curr.y - next.y) > 2) {
+          // Inject corner. Default to Horizontal then Vertical (H-V)
+          // We use the X of the next point and Y of current
+          orthoPoints.push({ x: next.x, y: curr.y });
+        }
+      }
+      orthoPoints.push(rawPoints[rawPoints.length - 1]);
+
+      // SIMPLIFY: Remove redundant collinear points
+      return simplifyOrthogonalPoints(orthoPoints);
+    }
+
     return [{ x: p1x, y: p1y }, ...r.controlPoints, { x: p2x, y: p2y }];
   }
 
   // Case 2: Orthogonal (Quadratic) Automatic Routing
   if (style === 'orthogonal') {
+    const { c1x, c2x } = pts;
     const dir1 = c1x > p1x ? 1 : -1;
     const dir2 = c2x > p2x ? 1 : -1;
     const isCShape = dir1 === dir2;
 
     if (isCShape) {
-      const buffer = 40;
+      const buffer = 30;
       let railX;
       if (dir1 === 1) {
         railX = Math.max(p1x, p2x) + buffer;
@@ -217,27 +265,17 @@ export const getRoutePoints = (
         hasCollision = true;
 
       if (hasCollision) {
-        const buffer = 40;
+        const buffer = 30;
         const railX1 = p1x + dir1 * buffer;
         const railX2 = p2x + dir2 * buffer;
-        const t1 = startTable!;
-        const t2 = endTable!;
-        const t1Bottom = t1.y + getTableHeight(t1);
-        const t2Bottom = t2.y + getTableHeight(t2);
-        const isT1Above = t1Bottom < t2.y;
-        const isT2Above = t2Bottom < t1.y;
-
-        let railY;
-        if (isT1Above) railY = (t1Bottom + t2.y) / 2;
-        else if (isT2Above) railY = (t2Bottom + t1.y) / 2;
-        else railY = Math.max(t1Bottom, t2Bottom) + 20;
 
         // Z-Shape around collision
+        const midY = (p1y + p2y) / 2;
         return [
           { x: p1x, y: p1y },
           { x: railX1, y: p1y },
-          { x: railX1, y: railY },
-          { x: railX2, y: railY },
+          { x: railX1, y: midY },
+          { x: railX2, y: midY },
           { x: railX2, y: p2y },
           { x: p2x, y: p2y },
         ];
@@ -252,8 +290,7 @@ export const getRoutePoints = (
     }
   }
 
-  // Case 3: Curved Automatic (Bezier) - Just return anchors
-  // Typically bezier control points are not "vertices" on the line, so we just return start/end
+  // Case 3: Curved Automatic (Bezier)
   return [
     { x: p1x, y: p1y },
     { x: p2x, y: p2y },
@@ -279,7 +316,6 @@ export const calculatePath = (
   }
 
   // Fallback for Automatic Curved (Original Bezier Logic)
-  // We keep this separate because getRoutePoints doesn't return bezier handles
   const { p1x, p1y, p2x, p2y, c1x, c1y, c2x, c2y } = pts;
   return `M ${p1x} ${p1y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2x} ${p2y}`;
 };
@@ -289,17 +325,13 @@ export const getCurveMidpoint = (
   tables: Table[],
   style: 'curved' | 'orthogonal' = 'curved',
 ) => {
-  // If we have route points (Manual or Orthogonal), find geometric center of path approximation
   const points = getRoutePoints(r, tables, style);
 
-  // For orthogonal or manual, pick the middle point or middle segment center
+  // For orthogonal or manual
   if (points.length > 2) {
-    // Quick midpoint: Picking the middle vertex or middle segment
     if (points.length % 2 !== 0) {
-      // Odd number of points, pick the middle one
       return points[Math.floor(points.length / 2)];
     } else {
-      // Even number, pick midpoint of middle segment
       const midIdx = Math.floor(points.length / 2);
       const p1 = points[midIdx - 1];
       const p2 = points[midIdx];
@@ -307,7 +339,7 @@ export const getCurveMidpoint = (
     }
   }
 
-  // Fallback for default bezier curve (Simple Start/End)
+  // Fallback for default bezier
   const pts = getConnectorPoints(r, tables);
   if (!pts) return { x: 0, y: 0 };
   const { p1x, p1y, p2x, p2y, c1x, c1y, c2x, c2y } = pts;

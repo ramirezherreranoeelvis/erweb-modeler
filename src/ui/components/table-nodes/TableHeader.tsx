@@ -60,7 +60,7 @@ const TableHeader: React.FC<TableHeaderProps> = ({
     <div
       className={`px-3 py-2 border-b border-slate-200 dark:border-slate-700 rounded-t-lg flex justify-between items-center ${
         isSelected
-          ? 'bg-gradient-to-r from-blue-50 to-white dark:from-blue-900/20 dark:to-slate-800'
+          ? 'bg-linear-to-r from-blue-50 to-white dark:from-blue-900/20 dark:to-slate-800'
           : 'bg-slate-50 dark:bg-slate-800'
       }`}
       onDoubleClick={(e) => {

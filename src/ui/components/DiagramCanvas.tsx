@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import type {
   Table,
   Relationship,
@@ -71,6 +71,7 @@ interface DiagramCanvasProps {
   onAddControlPoint: (relId: string, x: number, y: number, index?: number) => void;
   onUpdateControlPoint: (relId: string, index: number, x: number, y: number) => void;
   onDeleteControlPoint: (relId: string, index: number) => void;
+  onSetControlPoints?: (relId: string, points: { x: number; y: number }[]) => void;
 }
 
 const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
@@ -101,9 +102,9 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
   onMoveColumn,
   onDeleteColumn,
   onConfigTable,
-  onAddControlPoint,
   onUpdateControlPoint,
   onDeleteControlPoint,
+  onSetControlPoints,
 }) => {
   const mainRef = useRef<HTMLDivElement>(null);
 
@@ -117,12 +118,32 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [hoveredRelId, setHoveredRelId] = useState<string | null>(null);
 
+  // Track selected Control Point for deletion
+  const [selectedCP, setSelectedCP] = useState<{ relId: string; index: number } | null>(null);
+
   // Connection State
   const [isConnecting, setIsConnecting] = useState(false);
   const [tempConnection, setTempConnection] = useState<TempConnection | null>(null);
 
   // Refs
   const touchDist = useRef<number | null>(null);
+
+  // --- Keyboard Listener for Delete ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedCP) {
+        onDeleteControlPoint(selectedCP.relId, selectedCP.index);
+        setSelectedCP(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedCP, onDeleteControlPoint]);
 
   // --- Handlers ---
 
@@ -131,6 +152,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
       setSelectedId(null);
       setIsPropertiesPanelOpen(false);
       setRelMenu(null);
+      setSelectedCP(null); // Deselect CP
       setIsPanning(true);
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     }
@@ -162,8 +184,32 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
     touchDist.current = null;
   };
 
-  const handleRelPointerDown = (e: React.PointerEvent, relId: string) => {
+  const handleRelPointerDown = (e: React.PointerEvent) => {
     e.stopPropagation();
+  };
+
+  // Helper: "Bake" the current visual route into manual control points
+  const materializeRoute = (relId: string) => {
+    const rel = viewRelationships.find((r) => r.id === relId);
+    if (!rel) return [];
+
+    const visualPoints = getRoutePoints(rel, viewTables, viewOptions.lineStyle);
+
+    const uniquePoints = visualPoints.filter((p, i) => {
+      if (i === 0) return true;
+      const prev = visualPoints[i - 1];
+      return Math.hypot(p.x - prev.x, p.y - prev.y) > 5;
+    });
+
+    if (uniquePoints.length < 2) return [];
+
+    // Strip start/end (Table Anchors)
+    const newControlPoints = uniquePoints.slice(1, -1);
+
+    if (onSetControlPoints) {
+      onSetControlPoints(relId, newControlPoints);
+    }
+    return newControlPoints;
   };
 
   const handleControlPointPointerDown = (
@@ -174,49 +220,69 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
     currentY: number,
   ) => {
     e.stopPropagation();
-    e.preventDefault();
+    // REMOVED e.preventDefault() to allow double-click events to fire on the circle
+
     setRelMenu(null);
 
     if (!mainRef.current) return;
+
+    // 1. Materialize
+    const newCPs = materializeRoute(relId);
+
     const canvasRect = mainRef.current.getBoundingClientRect();
-    const rawX = e.clientX - canvasRect.left;
-    const rawY = e.clientY - canvasRect.top;
-    const clickX = (rawX - pan.x) / zoom;
-    const clickY = (rawY - pan.y) / zoom;
+    const clickX = (e.clientX - canvasRect.left - pan.x) / zoom;
+    const clickY = (e.clientY - canvasRect.top - pan.y) / zoom;
 
-    // The routeIndex comes from getRoutePoints which returns [Start, ...Intermediates, End]
-    // Manual control points stored in state correspond to the Intermediates.
-    // So index 0 in controlPoints array = index 1 in routePoints array.
-    const manualIndex = routeIndex - 1;
+    // Find the best matching index
+    let bestIndex = -1;
+    let minD = Infinity;
 
-    // Check if we need to "materialize" automatic points into manual control points
-    const rel = relationships.find((r) => r.id === relId);
-    if (rel && (!rel.controlPoints || rel.controlPoints.length === 0)) {
-      // It's currently automatic. Freeze the current shape!
-      const allPoints = getRoutePoints(rel, viewTables, viewOptions.lineStyle);
-      // Extract only the intermediate points (exclude Start and End)
-      const newControlPoints = allPoints.slice(1, -1);
+    newCPs.forEach((p, idx) => {
+      const d = Math.hypot(p.x - currentX, p.y - currentY);
+      if (d < minD) {
+        minD = d;
+        bestIndex = idx;
+      }
+    });
 
-      // Update the relationship to have these points manually set
-      setRelationships((prev) =>
-        prev.map((r) => {
-          if (r.id === relId) {
-            return { ...r, controlPoints: newControlPoints };
-          }
-          return r;
-        }),
-      );
-    }
+    if (bestIndex === -1) bestIndex = Math.max(0, Math.min(routeIndex - 1, newCPs.length - 1));
 
-    // Calculate offset so the point doesn't jump to mouse center
+    setSelectedCP({ relId, index: bestIndex });
+
     const offsetX = clickX - currentX;
     const offsetY = clickY - currentY;
 
     setDragInfo({
       isDragging: true,
       offset: { x: offsetX, y: offsetY },
-      // We target the manual index now (which we either just created or already existed)
-      targetId: `cp:${relId}:${manualIndex}`,
+      targetId: `cp:${relId}:${bestIndex}`,
+    });
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+  };
+
+  const handleSegmentPointerDown = (
+    e: React.PointerEvent,
+    relId: string,
+    segmentStartIndex: number,
+    isVertical: boolean,
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setRelMenu(null);
+    setSelectedCP(null);
+
+    if (!mainRef.current) return;
+
+    materializeRoute(relId);
+
+    const canvasRect = mainRef.current.getBoundingClientRect();
+    const clickX = (e.clientX - canvasRect.left - pan.x) / zoom;
+    const clickY = (e.clientY - canvasRect.top - pan.y) / zoom;
+
+    setDragInfo({
+      isDragging: true,
+      offset: { x: clickX, y: clickY },
+      targetId: `seg:${relId}:${segmentStartIndex}:${isVertical ? 'v' : 'h'}`,
     });
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
   };
@@ -235,26 +301,35 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
     if (!rel) return;
 
     const canvasRect = mainRef.current.getBoundingClientRect();
-    const rawX = e.clientX - canvasRect.left;
-    const rawY = e.clientY - canvasRect.top;
+    const clickX = (e.clientX - canvasRect.left - pan.x) / zoom;
+    const clickY = (e.clientY - canvasRect.top - pan.y) / zoom;
 
-    const clickX = (rawX - pan.x) / zoom;
-    const clickY = (rawY - pan.y) / zoom;
+    const allPoints = getRoutePoints(rel, viewTables, viewOptions.lineStyle);
 
-    const pts = getConnectorPoints(rel, viewTables);
-    if (pts) {
-      // Construct array of all points to find segment
-      const allPoints = getRoutePoints(rel, viewTables, viewOptions.lineStyle);
+    // Prevent adding point if too close to existing (Increased radius to 20px)
+    const isOverExisting = allPoints.some((p) => Math.hypot(p.x - clickX, p.y - clickY) < 20);
+    if (isOverExisting) return;
 
-      // Find which segment the click is closest to, to insert the point in correct order
-      // The getInsertIndex returns the index in the allPoints array.
-      // We need to convert that to the index in the controlPoints array (subtract 1 because start point is index 0)
-      const insertIdx = getInsertIndex(allPoints, { x: clickX, y: clickY }) - 1;
-
-      // If it was automatic, addControlPoint handles creating the array,
-      // but passing the index correctly ensures it goes to the right segment
-      onAddControlPoint(relId, clickX, clickY, insertIdx);
+    let currentControlPoints = rel.controlPoints || [];
+    if (currentControlPoints.length === 0 && allPoints.length > 2) {
+      currentControlPoints = allPoints.slice(1, -1);
     }
+
+    const insertIdx = getInsertIndex(allPoints, { x: clickX, y: clickY }) - 1;
+
+    const newPoints = [...currentControlPoints];
+    if (insertIdx >= 0 && insertIdx <= newPoints.length) {
+      newPoints.splice(insertIdx, 0, { x: clickX, y: clickY });
+    } else {
+      newPoints.push({ x: clickX, y: clickY });
+    }
+
+    setRelationships((prev) =>
+      prev.map((r) => {
+        if (r.id === relId) return { ...r, controlPoints: newPoints };
+        return r;
+      }),
+    );
 
     setRelMenu(null);
   };
@@ -262,6 +337,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
   const handleTablePointerDown = (e: React.PointerEvent, id: string) => {
     e.stopPropagation();
     setRelMenu(null);
+    setSelectedCP(null);
     const targetTable = viewTables.find((t) => t.id === id);
     const isLocked = globalEditable || (targetTable && targetTable.isManuallyEditable);
 
@@ -291,12 +367,12 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
   ) => {
     e.stopPropagation();
     setRelMenu(null);
+    setSelectedCP(null);
 
     const table = viewTables.find((t) => t.id === tableId);
     if (!table) return;
     if (tableId.startsWith('virt_')) return;
 
-    // Calculate start position accurately
     const relativeY = getColumnRelativeY(table, colId);
 
     setIsConnecting(true);
@@ -487,11 +563,43 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
         const relId = parts[1];
         const index = parseInt(parts[2], 10);
 
-        // Apply offset to keep the point under the mouse relative to click
         const newX = x - dragInfo.offset.x;
         const newY = y - dragInfo.offset.y;
 
         onUpdateControlPoint(relId, index, newX, newY);
+        return;
+      }
+
+      // Segment Dragging
+      if (dragInfo.targetId.startsWith('seg:')) {
+        const parts = dragInfo.targetId.split(':');
+        const relId = parts[1];
+        const routeStartIndex = parseInt(parts[2], 10);
+        const axis = parts[3];
+
+        const rel = relationships.find((r) => r.id === relId);
+        if (!rel || !rel.controlPoints) return;
+
+        const cpIndices = [routeStartIndex - 1, routeStartIndex];
+
+        const updateCP = (idx: number, newCoord: number, type: 'x' | 'y') => {
+          if (idx < 0 || idx >= rel.controlPoints!.length) return;
+          const pt = rel.controlPoints![idx];
+          onUpdateControlPoint(
+            relId,
+            idx,
+            type === 'x' ? newCoord : pt.x,
+            type === 'y' ? newCoord : pt.y,
+          );
+        };
+
+        if (axis === 'v') {
+          updateCP(cpIndices[0], x, 'x');
+          updateCP(cpIndices[1], x, 'x');
+        } else {
+          updateCP(cpIndices[0], y, 'y');
+          updateCP(cpIndices[1], y, 'y');
+        }
         return;
       }
 
@@ -508,13 +616,72 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
       }
 
       // Normal Table Dragging
-      setTables(
-        tables.map((t) =>
-          t.id === dragInfo.targetId
-            ? { ...t, x: x - dragInfo.offset.x, y: y - dragInfo.offset.y }
-            : t,
-        ),
-      );
+      const tableId = dragInfo.targetId;
+      const targetTable = tables.find((t) => t.id === tableId);
+
+      if (targetTable) {
+        const newTx = x - dragInfo.offset.x;
+        const newTy = y - dragInfo.offset.y;
+        const dx = newTx - targetTable.x;
+        const dy = newTy - targetTable.y;
+
+        // Update table position
+        setTables(tables.map((t) => (t.id === tableId ? { ...t, x: newTx, y: newTy } : t)));
+
+        // SMART DRAG: Update connected relationships' control points
+        // This prevents diagonal skewing by moving connected orthogonal points WITH the table
+        if (viewOptions.lineStyle === 'orthogonal') {
+          setRelationships((prev) =>
+            prev.map((r) => {
+              if (!r.controlPoints || r.controlPoints.length === 0) return r;
+
+              let newCPs = [...r.controlPoints];
+              let modified = false;
+
+              // If table is Source, check first Control Point
+              if (r.fromTable === tableId) {
+                const firstCP = newCPs[0];
+                // Improved Smart Drag:
+                // If the segment from Table to CP[0] is predominantly vertical, shift CP[0].x by dx
+                // If horizontal, shift CP[0].y by dy
+
+                const prevPt = getRoutePoints(r, tables, 'orthogonal')[0]; // Start point (anchor)
+                const isSegVertical =
+                  Math.abs(prevPt.x - firstCP.x) < Math.abs(prevPt.y - firstCP.y);
+
+                if (isSegVertical) {
+                  newCPs[0] = { ...firstCP, x: firstCP.x + dx };
+                  modified = true;
+                } else {
+                  newCPs[0] = { ...firstCP, y: firstCP.y + dy };
+                  modified = true;
+                }
+              }
+
+              // If table is Target, check last Control Point
+              if (r.toTable === tableId) {
+                const lastIdx = newCPs.length - 1;
+                const lastCP = newCPs[lastIdx];
+                const routePts = getRoutePoints(r, tables, 'orthogonal');
+                const endAnchor = routePts[routePts.length - 1]; // End anchor
+
+                const isSegVertical =
+                  Math.abs(endAnchor.x - lastCP.x) < Math.abs(endAnchor.y - lastCP.y);
+
+                if (isSegVertical) {
+                  newCPs[lastIdx] = { ...lastCP, x: lastCP.x + dx };
+                  modified = true;
+                } else {
+                  newCPs[lastIdx] = { ...lastCP, y: lastCP.y + dy };
+                  modified = true;
+                }
+              }
+
+              return modified ? { ...r, controlPoints: newCPs } : r;
+            }),
+          );
+        }
+      }
     }
   };
 
@@ -678,9 +845,16 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
             {viewRelationships.map((rel) => {
               const isSelected = relMenuId === rel.id;
               const isHovered = hoveredRelId === rel.id;
-              // Check if we are currently dragging a point belonging to this relationship
-              const isDraggingThisRel = dragInfo.targetId?.includes(`cp:${rel.id}:`);
-              const areDotsVisible = isHovered || isDraggingThisRel;
+              const isDraggingThisRel = dragInfo.targetId?.includes(`:${rel.id}:`);
+              const isCPSelected = selectedCP?.relId === rel.id;
+              const areDotsVisible = isHovered || isDraggingThisRel || isSelected || isCPSelected;
+
+              // Check if Identifying or Non-Identifying
+              const targetTable = viewTables.find((t) => t.id === rel.toTable);
+              const targetCol = targetTable?.columns.find((c) => c.id === rel.toCol);
+              // Identifying: FK is PK (Solid). Non-Identifying: FK is NOT PK (Dashed).
+              const isIdentifying = targetCol?.isPk;
+              const dashArray = isIdentifying ? 'none' : '4,4';
 
               let startM: string | undefined = 'url(#oneStart)';
               let endM: string | undefined = 'url(#manyEnd)';
@@ -719,14 +893,12 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
               }
 
               // Calculate position for text labels
-              const pts = getConnectorPoints(rel, viewTables); // Use viewTables for calculation
+              const pts = getConnectorPoints(rel, viewTables);
               const midpoint = getCurveMidpoint(rel, viewTables, viewOptions.lineStyle);
 
-              // Get ALL route points (Auto + Manual) for rendering vertices
               const routePoints = getRoutePoints(rel, viewTables, viewOptions.lineStyle);
 
-              // Calculate dynamic width for the label background based on character count
-              const charWidth = 6; // Approximate width per character in pixels
+              const charWidth = 6;
               const padding = 16;
               const labelWidth = (rel.name ? rel.name.length * charWidth : 40) + padding;
 
@@ -734,7 +906,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
                 <g
                   key={rel.id}
                   className="pointer-events-auto cursor-pointer group"
-                  onPointerDown={(e) => handleRelPointerDown(e, rel.id)}
+                  onPointerDown={(e) => handleRelPointerDown(e)}
                   onClick={(e) => handleRelClick(e, rel.id)}
                   onDoubleClick={(e) => handleRelDoubleClick(e, rel.id)}
                   onPointerEnter={() => setHoveredRelId(rel.id)}
@@ -744,7 +916,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
                   <path
                     d={calculatePath(rel, viewTables, viewOptions.lineStyle)}
                     stroke="transparent"
-                    strokeWidth="15"
+                    strokeWidth="20"
                     fill="none"
                   />
                   {/* Visible line */}
@@ -755,41 +927,113 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
                     fill="none"
                     markerStart={startM}
                     markerEnd={endM}
+                    strokeDasharray={dashArray}
                     className="transition-colors duration-200"
                   />
 
+                  {/* Segment Handles (Blue Rectangles) - Only for Manual or Orthogonal lines */}
+                  {areDotsVisible &&
+                    routePoints.length > 2 &&
+                    routePoints.map((p1, idx) => {
+                      if (idx >= routePoints.length - 1) return null;
+
+                      if (idx === 0 || idx === routePoints.length - 2) return null;
+
+                      const p2 = routePoints[idx + 1];
+
+                      const isVertical = Math.abs(p1.x - p2.x) < 2;
+                      const isHorizontal = Math.abs(p1.y - p2.y) < 2;
+
+                      if (!isVertical && !isHorizontal) return null;
+
+                      const midX = (p1.x + p2.x) / 2;
+                      const midY = (p1.y + p2.y) / 2;
+
+                      const segLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                      if (segLen < 20) return null;
+
+                      return (
+                        <rect
+                          key={`seg-${idx}`}
+                          x={midX - (isVertical ? 4 : 8)}
+                          y={midY - (isVertical ? 8 : 4)}
+                          width={isVertical ? 8 : 16}
+                          height={isVertical ? 16 : 8}
+                          rx={2}
+                          fill="#3b82f6"
+                          stroke="black"
+                          strokeWidth="1"
+                          className="cursor-move hover:fill-blue-400"
+                          onPointerDown={(e) =>
+                            handleSegmentPointerDown(e, rel.id, idx, isVertical)
+                          }
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      );
+                    })}
+
                   {/* Vertices / Control Points (Green Dots) */}
-                  {/* We render ALL points returned by getRoutePoints as visual vertices when hovered */}
-                  {/* BUT we filter out Start (0) and End (last) because those are anchors, not draggable control points */}
                   {areDotsVisible &&
                     routePoints.map((cp, idx) => {
                       if (idx === 0 || idx === routePoints.length - 1) return null;
-
-                      // Map route index to manual control point index
                       const manualIndex = idx - 1;
+                      const isPtSelected =
+                        selectedCP?.relId === rel.id && selectedCP?.index === manualIndex;
 
                       return (
-                        <circle
-                          key={`${rel.id}-pt-${idx}`}
-                          cx={cp.x}
-                          cy={cp.y}
-                          r={4}
-                          fill="#10b981" // Green-500
-                          stroke="white"
-                          strokeWidth="1.5"
-                          style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
-                          className="cursor-move hover:scale-125 transition-transform drop-shadow-md"
-                          onPointerDown={(e) =>
-                            handleControlPointPointerDown(e, rel.id, idx, cp.x, cp.y)
-                          }
-                          onDoubleClick={(e) => {
-                            e.stopPropagation();
-                            // If it's a manual point (already materialized), we can delete it.
-                            if (rel.controlPoints && rel.controlPoints.length > 0) {
-                              onDeleteControlPoint(rel.id, manualIndex);
+                        <g key={`${rel.id}-pt-${idx}`}>
+                          <circle
+                            cx={cp.x}
+                            cy={cp.y}
+                            r={isPtSelected ? 6 : 4}
+                            fill={isPtSelected ? '#f97316' : '#10b981'} // Orange if selected, Green default
+                            stroke="white"
+                            strokeWidth="1.5"
+                            style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
+                            className="cursor-move hover:scale-125 transition-transform drop-shadow-md"
+                            onPointerDown={(e) =>
+                              handleControlPointPointerDown(e, rel.id, idx, cp.x, cp.y)
                             }
-                          }}
-                        />
+                            onClick={(e) => e.stopPropagation()}
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              if (rel.controlPoints && rel.controlPoints.length > 0) {
+                                onDeleteControlPoint(rel.id, manualIndex);
+                              }
+                            }}
+                          />
+                          {/* Trash Button for Selected Point - Hidden on Desktop (md:hidden) */}
+                          {isPtSelected && (
+                            <g
+                              className="md:hidden cursor-pointer hover:opacity-80"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteControlPoint(rel.id, manualIndex);
+                                setSelectedCP(null);
+                              }}
+                              transform={`translate(${cp.x + 10}, ${cp.y - 12})`}
+                            >
+                              <rect
+                                width="20"
+                                height="20"
+                                rx="4"
+                                fill="#ef4444"
+                                stroke="white"
+                                strokeWidth="1"
+                              />
+                              <g transform="translate(4, 4) scale(0.6)">
+                                <path
+                                  d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"
+                                  fill="none"
+                                  stroke="white"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </g>
+                            </g>
+                          )}
+                        </g>
                       );
                     })}
 

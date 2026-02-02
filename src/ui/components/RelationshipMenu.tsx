@@ -43,7 +43,7 @@ const RelationshipMenu: React.FC<RelationshipMenuProps> = ({
         />
       </div>
 
-      <div className="h-[1px] bg-slate-100 dark:bg-slate-700 my-0.5"></div>
+      <div className="h-px bg-slate-100 dark:bg-slate-700 my-0.5"></div>
 
       <div className="text-[10px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wider">
         Cardinality
@@ -84,7 +84,7 @@ const RelationshipMenu: React.FC<RelationshipMenuProps> = ({
         <span>Many to Many (N:M)</span>
       </button>
 
-      <div className="h-[1px] bg-slate-100 dark:bg-slate-700 my-0.5"></div>
+      <div className="h-px bg-slate-100 dark:bg-slate-700 my-0.5"></div>
 
       <div className="text-[10px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wider">
         Routing
@@ -134,7 +134,7 @@ const RelationshipMenu: React.FC<RelationshipMenuProps> = ({
         </button>
       </div>
 
-      <div className="h-[1px] bg-slate-100 dark:bg-slate-700 my-0.5"></div>
+      <div className="h-px bg-slate-100 dark:bg-slate-700 my-0.5"></div>
 
       <button
         onClick={onResetRouting}
