@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Settings, X, Lock, Key, Trash2, GripVertical } from 'lucide-react';
+import { Settings, X, Lock, Key, Trash2, GripVertical, AlertTriangle } from 'lucide-react';
 import type { Table, Relationship } from '../types';
 import type { DbEngine } from '../../utils/dbDataTypes';
-import { DB_DATA_TYPES, shouldShowLength } from '../../utils/dbDataTypes';
+import { DB_DATA_TYPES, shouldShowLength, isTypeValid } from '../../utils/dbDataTypes';
 
 interface PropertiesPanelProps {
   selectedTable: Table;
@@ -120,6 +120,10 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 (r) => r.toTable === selectedTable.id && r.toCol === col.id,
               );
               const showLength = shouldShowLength(col.type);
+              const isValid = isTypeValid(col.type, dbEngine);
+
+              // Check if the exact string exists in options
+              const isExactMatch = availableTypes.includes(col.type);
 
               return (
                 <div
@@ -133,7 +137,13 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                     }
                     setDraggedIndex(null);
                   }}
-                  className={`bg-slate-50 dark:bg-slate-700/50 p-3 rounded border border-slate-200 dark:border-slate-600 group relative hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-sm transition-all ${draggedIndex === index ? 'opacity-50' : 'opacity-100'}`}
+                  className={`p-3 rounded border group relative hover:shadow-sm transition-all ${
+                    draggedIndex === index ? 'opacity-50' : 'opacity-100'
+                  } ${
+                    isValid
+                      ? 'bg-slate-50 dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-600'
+                      : 'bg-red-50 dark:bg-red-900/10 border-red-300 dark:border-red-700'
+                  }`}
                 >
                   {/* Drag Handle */}
                   <div className="absolute left-1 top-1/2 -translate-y-1/2 cursor-grab text-slate-300 dark:text-slate-500 hover:text-slate-500 dark:hover:text-slate-300 p-1">
@@ -171,7 +181,9 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                     <div className="flex gap-2 items-end">
                       <div className="w-24 shrink-0 relative">
                         <label className="text-[9px] text-slate-400 font-bold mb-0.5 flex items-center gap-1">
-                          Type {isLinkedFk && <Lock size={8} className="text-amber-500" />}
+                          Type 
+                          {isLinkedFk && <Lock size={8} className="text-amber-500" />}
+                          {!isValid && <AlertTriangle size={8} className="text-red-500" />}
                         </label>
                         <select
                           value={col.type}
@@ -179,8 +191,24 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                           onChange={(e) =>
                             onUpdateColumn(selectedTable.id, col.id, 'type', e.target.value)
                           }
-                          className={`w-full text-[10px] py-1.5 px-0.5 border border-slate-300 dark:border-slate-600 rounded text-slate-700 dark:text-slate-200 outline-none ${isLinkedFk ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'bg-white dark:bg-slate-800'}`}
+                          className={`w-full text-[10px] py-1.5 px-0.5 border rounded outline-none ${
+                            isLinkedFk
+                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border-slate-300 dark:border-slate-600'
+                              : isValid 
+                                ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600'
+                                : 'bg-red-50 dark:bg-slate-800 text-red-600 border-red-400 font-bold'
+                          }`}
                         >
+                          {/* If the current type is not exactly in the list, add it as a preservation option */}
+                          {!isExactMatch && (
+                            <option 
+                              value={col.type} 
+                              className={isValid ? 'bg-slate-100 text-slate-600' : 'bg-red-100 text-red-700 font-bold'}
+                            >
+                              {col.type} {isValid ? '' : '(Invalid)'}
+                            </option>
+                          )}
+                          
                           {availableTypes.map((t, idx) => (
                             <option key={`${t}-${idx}`} value={t}>
                               {t}

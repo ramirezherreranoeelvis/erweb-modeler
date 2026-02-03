@@ -67,14 +67,14 @@ const RelationshipMenu: React.FC<RelationshipMenuProps> = ({
         onClick={() => onUpdateType('1:N')}
         className="flex items-center gap-2 px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-xs text-slate-700 dark:text-slate-300 rounded text-left transition-colors"
       >
-        <span>One to Many (1:N)</span>
+        <span>One to One-or-Many (1:N)</span>
       </button>
 
       <button
         onClick={() => onUpdateType('1:0..N')}
         className="flex items-center gap-2 px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-xs text-slate-700 dark:text-slate-300 rounded text-left transition-colors"
       >
-        <span>One to Zero-or-Many (1:0..N)</span>
+        <span>One to Zero-One-or-Many (1:0..N)</span>
       </button>
 
       <button

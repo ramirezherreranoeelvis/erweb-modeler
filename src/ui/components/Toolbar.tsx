@@ -2,6 +2,7 @@ import React from 'react';
 import { Database, ZoomIn, ZoomOut, Save, Moon, Sun, Menu, Server } from 'lucide-react';
 import { DB_ENGINES } from '../../utils/dbDataTypes';
 import type { DbEngine } from '../../utils/dbDataTypes';
+
 interface ToolbarProps {
   viewMode: string;
   setViewMode: (mode: string) => void;
@@ -12,6 +13,7 @@ interface ToolbarProps {
   theme: 'light' | 'dark';
   setTheme: React.Dispatch<React.SetStateAction<'light' | 'dark'>>;
   onToggleSidebar: () => void;
+  onExport: () => void;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -24,6 +26,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   theme,
   setTheme,
   onToggleSidebar,
+  onExport,
 }) => {
   return (
     <header className="h-14 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-4 shadow-sm z-10 shrink-0 transition-colors duration-200 relative">
@@ -112,7 +115,10 @@ const Toolbar: React.FC<ToolbarProps> = ({
             <ZoomIn size={16} />
           </button>
         </div>
-        <button className="hidden flex items-center gap-2 px-3 py-1.5 bg-slate-800 dark:bg-blue-600 hover:bg-slate-900 dark:hover:bg-blue-700 text-white rounded shadow text-xs font-bold transition-colors">
+        <button 
+          onClick={onExport}
+          className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 dark:bg-blue-600 hover:bg-slate-900 dark:hover:bg-blue-700 text-white rounded shadow text-xs font-bold transition-colors"
+        >
           <Save size={14} />
           <span className="hidden sm:inline">Export SQL</span>
         </button>

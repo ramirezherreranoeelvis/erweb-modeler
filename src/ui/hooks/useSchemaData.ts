@@ -7,7 +7,7 @@ const INITIAL_TABLES: Table[] = [
     id: 't1',
     name: 'USERS',
     logicalName: 'Customer',
-    x: 50,
+    x: 100,
     y: 100,
     isManuallyEditable: false,
     columns: [
@@ -53,8 +53,8 @@ const INITIAL_TABLES: Table[] = [
     id: 't2',
     name: 'ORDERS',
     logicalName: 'Sales Order',
-    x: 400,
-    y: 100,
+    x: 100,
+    y: 300,
     isManuallyEditable: false,
     columns: [
       {
@@ -107,64 +107,6 @@ const INITIAL_TABLES: Table[] = [
       },
     ],
   },
-  {
-    id: 't3',
-    name: 'PRODUCTS',
-    logicalName: 'Product Catalog',
-    x: 750,
-    y: 100,
-    isManuallyEditable: false,
-    columns: [
-      {
-        id: 'c1',
-        name: 'product_id',
-        logicalName: 'Product ID',
-        type: 'INT',
-        length: '',
-        isPk: true,
-        isFk: false,
-        isNullable: false,
-        isUnique: true,
-        isIdentity: true,
-      },
-      {
-        id: 'c2',
-        name: 'sku',
-        logicalName: 'SKU Code',
-        type: 'VARCHAR',
-        length: '20',
-        isPk: false,
-        isFk: false,
-        isNullable: false,
-        isUnique: true,
-        isIdentity: false,
-      },
-      {
-        id: 'c3',
-        name: 'name',
-        logicalName: 'Product Name',
-        type: 'VARCHAR',
-        length: '100',
-        isPk: false,
-        isFk: false,
-        isNullable: false,
-        isUnique: false,
-        isIdentity: false,
-      },
-      {
-        id: 'c4',
-        name: 'price',
-        logicalName: 'Unit Price',
-        type: 'DECIMAL',
-        length: '10,2',
-        isPk: false,
-        isFk: false,
-        isNullable: false,
-        isUnique: false,
-        isIdentity: false,
-      },
-    ],
-  },
 ];
 
 const INITIAL_RELS: Relationship[] = [
@@ -176,16 +118,6 @@ const INITIAL_RELS: Relationship[] = [
     toTable: 't2',
     toCol: 'c2',
     type: '1:N',
-  },
-  {
-    id: 'r2',
-    name: 'rel_orders_products',
-    logicalName: 'Order Details',
-    fromTable: 't2',
-    fromCol: 'c1',
-    toTable: 't3',
-    toCol: 'c1',
-    type: 'N:M',
   },
 ];
 
@@ -218,8 +150,8 @@ export const useSchemaData = (viewMode: string) => {
           let midY = (sourceTable.y + targetTable.y) / 2;
 
           if (rel.x !== undefined && rel.y !== undefined) {
-             midX = rel.x;
-             midY = rel.y;
+            midX = rel.x;
+            midY = rel.y;
           }
 
           const sourcePks = sourceTable.columns.filter((c) => c.isPk);
@@ -317,7 +249,6 @@ export const useSchemaData = (viewMode: string) => {
   }, [tables, relationships, viewMode]);
 
   // --- CRUD Operations ---
-  // ... (keeping previous CRUD ops same)
 
   const applyConnection = (
     sourceTId: string,
@@ -411,7 +342,9 @@ export const useSchemaData = (viewMode: string) => {
       if (field === 'name') {
         setRelationships((prev) => prev.map((r) => (r.id === relId ? { ...r, name: value } : r)));
       } else if (field === 'logicalName') {
-        setRelationships((prev) => prev.map((r) => (r.id === relId ? { ...r, logicalName: value } : r)));
+        setRelationships((prev) =>
+          prev.map((r) => (r.id === relId ? { ...r, logicalName: value } : r)),
+        );
       } else if (field === 'isManuallyEditable') {
         setRelationships((prev) =>
           prev.map((r) => (r.id === relId ? { ...r, isManuallyEditable: value } : r)),
@@ -448,7 +381,7 @@ export const useSchemaData = (viewMode: string) => {
           ({
             ...c,
             id: generateId(),
-            _oldId: c.id, 
+            _oldId: c.id,
           }) as any,
       ),
     };
@@ -488,14 +421,16 @@ export const useSchemaData = (viewMode: string) => {
     newTable.columns.push(extraCol);
 
     setTables((prev) => [...prev, newTable]);
-    setRelationships((prev) => [
-      ...prev.filter((r) => r.id !== relId),
-      ...newRels,
-    ]);
+    setRelationships((prev) => [...prev.filter((r) => r.id !== relId), ...newRels]);
   };
 
-  const addTable = (sidebarWidth: number, pan: {x: number, y: number}, zoom: number, selectedId: string | null) => {
-    const containerWidth = window.innerWidth - (selectedId ? sidebarWidth : 0) - 224; 
+  const addTable = (
+    sidebarWidth: number,
+    pan: { x: number; y: number },
+    zoom: number,
+    selectedId: string | null,
+  ) => {
+    const containerWidth = window.innerWidth - (selectedId ? sidebarWidth : 0) - 224;
     const containerHeight = window.innerHeight - 56;
     const centerX = (-pan.x + containerWidth / 2) / zoom;
     const centerY = (-pan.y + containerHeight / 2) / zoom;
@@ -511,7 +446,7 @@ export const useSchemaData = (viewMode: string) => {
       id: generateId(),
       name: newName,
       logicalName: 'New Entity',
-      x: centerX - 140, 
+      x: centerX - 140,
       y: centerY - 100,
       isManuallyEditable: false,
       columns: [
@@ -535,12 +470,10 @@ export const useSchemaData = (viewMode: string) => {
 
   const deleteTable = (id: string | null) => {
     if (!id) return;
-    if (id.startsWith('virt_')) return; 
+    if (id.startsWith('virt_')) return;
 
     setTables(tables.filter((t) => t.id !== id));
-    setRelationships(
-      relationships.filter((r) => r.fromTable !== id && r.toTable !== id),
-    );
+    setRelationships(relationships.filter((r) => r.fromTable !== id && r.toTable !== id));
   };
 
   const addColumn = (tableId: string) => {
@@ -617,7 +550,23 @@ export const useSchemaData = (viewMode: string) => {
         if (t.id === tableId) {
           const newColumns = t.columns.map((c) => {
             if (c.id === colId) {
-              const updatedCol = { ...c, [field]: value };
+              let updatedCol = { ...c };
+
+              if (field === 'type' && typeof value === 'string') {
+                const match = value.match(/^([^(]+)(?:\(([^)]*)\))?$/);
+                if (match) {
+                  updatedCol.type = match[1].trim();
+                  // If parentheses existed (match[2] is defined), update length
+                  if (match[2] !== undefined) {
+                    updatedCol.length = match[2];
+                  }
+                } else {
+                  updatedCol.type = value;
+                }
+              } else {
+                updatedCol = { ...c, [field]: value };
+              }
+
               if (field === 'isNullable' && value === true) {
                 updatedCol.isPk = false;
                 updatedCol.isIdentity = false;
@@ -627,7 +576,6 @@ export const useSchemaData = (viewMode: string) => {
               }
               if (field === 'isIdentity' && value === true) {
                 if (updatedCol.isFk) {
-                  // Prevent Identity if it's an FK
                   updatedCol.isIdentity = false;
                 } else {
                   updatedCol.isNullable = false;
@@ -644,7 +592,7 @@ export const useSchemaData = (viewMode: string) => {
       });
       return newTables;
     });
-    
+
     // Defer propagation
     setTimeout(() => {
       if (updatedColumnData) {
@@ -664,21 +612,6 @@ export const useSchemaData = (viewMode: string) => {
                       ...r,
                       type: updatedColumnData!.isNullable ? '1:0..N' : '1:N',
                     };
-                }
-
-                if (field === 'isNullable') {
-                  if (value === true) {
-                    return {
-                      ...r,
-                      type: updatedColumnData!.isUnique ? '1:0..1' : '1:0..N',
-                    };
-                  }
-                  else {
-                    return {
-                      ...r,
-                      type: updatedColumnData!.isUnique ? '1:1' : '1:N',
-                    };
-                  }
                 }
               }
               return r;
@@ -703,8 +636,12 @@ export const useSchemaData = (viewMode: string) => {
 
   const deleteColumn = (tableId: string, colId: string) => {
     if (tableId.startsWith('virt_')) return;
-    const relationshipsAsSource = relationships.filter((r) => r.fromTable === tableId && r.fromCol === colId);
-    const relationshipsAsTarget = relationships.filter((r) => r.toTable === tableId && r.toCol === colId);
+    const relationshipsAsSource = relationships.filter(
+      (r) => r.fromTable === tableId && r.fromCol === colId,
+    );
+    const relationshipsAsTarget = relationships.filter(
+      (r) => r.toTable === tableId && r.toCol === colId,
+    );
     const relsToDelete = [...relationshipsAsSource, ...relationshipsAsTarget];
     const relIdsToDelete = new Set(relsToDelete.map((r) => r.id));
     const columnsToDelete: { tableId: string; colId: string }[] = [];
@@ -738,7 +675,7 @@ export const useSchemaData = (viewMode: string) => {
     if (!rel) return;
     setRelationships(relationships.map((r) => (r.id === relId ? { ...r, type } : r)));
     // ... propagation logic ...
-     if (type === '1:1' || type === '1:N' || type === '1:0..N' || type === '1:0..1') {
+    if (type === '1:1' || type === '1:N' || type === '1:0..N' || type === '1:0..1') {
       setTables((prevTables) =>
         prevTables.map((t) => {
           if (t.id === rel.toTable) {
@@ -769,12 +706,18 @@ export const useSchemaData = (viewMode: string) => {
   const resetRelRouting = (relId: string) => {
     setRelationships((prev) =>
       prev.map((r) =>
-        r.id === relId ? { ...r, sourceSide: undefined, targetSide: undefined, controlPoints: undefined } : r,
+        r.id === relId
+          ? { ...r, sourceSide: undefined, targetSide: undefined, controlPoints: undefined }
+          : r,
       ),
     );
   };
 
-  const setRelRouting = (relId: string, sourceSide: 'left' | 'right', targetSide: 'left' | 'right') => {
+  const setRelRouting = (
+    relId: string,
+    sourceSide: 'left' | 'right',
+    targetSide: 'left' | 'right',
+  ) => {
     setRelationships((prev) =>
       prev.map((r) => (r.id === relId ? { ...r, sourceSide, targetSide } : r)),
     );
@@ -801,49 +744,57 @@ export const useSchemaData = (viewMode: string) => {
   // --- Manual Control Points ---
 
   const addControlPoint = (relId: string, x: number, y: number, index?: number) => {
-    setRelationships(prev => prev.map(r => {
-      if (r.id === relId) {
-        const currentPoints = r.controlPoints || [];
-        let newPoints = [...currentPoints];
-        if (index !== undefined && index >= 0 && index <= currentPoints.length) {
+    setRelationships((prev) =>
+      prev.map((r) => {
+        if (r.id === relId) {
+          const currentPoints = r.controlPoints || [];
+          let newPoints = [...currentPoints];
+          if (index !== undefined && index >= 0 && index <= currentPoints.length) {
             newPoints.splice(index, 0, { x, y });
-        } else {
+          } else {
             newPoints.push({ x, y });
+          }
+          return {
+            ...r,
+            controlPoints: newPoints,
+          };
         }
-        return {
-          ...r,
-          controlPoints: newPoints
-        };
-      }
-      return r;
-    }));
+        return r;
+      }),
+    );
   };
 
   const setControlPoints = (relId: string, points: { x: number; y: number }[]) => {
-      setRelationships(prev => prev.map(r => (r.id === relId ? { ...r, controlPoints: points } : r)));
+    setRelationships((prev) =>
+      prev.map((r) => (r.id === relId ? { ...r, controlPoints: points } : r)),
+    );
   };
 
   const updateControlPoint = (relId: string, index: number, x: number, y: number) => {
-    setRelationships(prev => prev.map(r => {
-      if (r.id === relId && r.controlPoints) {
-        const newPoints = [...r.controlPoints];
-        if (newPoints[index]) {
-          newPoints[index] = { x, y };
+    setRelationships((prev) =>
+      prev.map((r) => {
+        if (r.id === relId && r.controlPoints) {
+          const newPoints = [...r.controlPoints];
+          if (newPoints[index]) {
+            newPoints[index] = { x, y };
+          }
+          return { ...r, controlPoints: newPoints };
         }
-        return { ...r, controlPoints: newPoints };
-      }
-      return r;
-    }));
+        return r;
+      }),
+    );
   };
 
   const deleteControlPoint = (relId: string, index: number) => {
-    setRelationships(prev => prev.map(r => {
+    setRelationships((prev) =>
+      prev.map((r) => {
         if (r.id === relId && r.controlPoints) {
-            const newPoints = r.controlPoints.filter((_, i) => i !== index);
-            return { ...r, controlPoints: newPoints.length > 0 ? newPoints : undefined };
+          const newPoints = r.controlPoints.filter((_, i) => i !== index);
+          return { ...r, controlPoints: newPoints.length > 0 ? newPoints : undefined };
         }
         return r;
-    }));
+      }),
+    );
   };
 
   return {
@@ -870,7 +821,7 @@ export const useSchemaData = (viewMode: string) => {
       addControlPoint,
       setControlPoints,
       updateControlPoint,
-      deleteControlPoint
-    }
+      deleteControlPoint,
+    },
   };
 };

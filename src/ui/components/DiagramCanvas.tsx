@@ -19,6 +19,7 @@ import {
   getColumnRelativeY,
 } from '../../utils/geometry';
 import TableNode from './table-nodes';
+import { CardinalityMarkers } from './CardinalityMarkers';
 import type { DbEngine } from '../../utils/dbDataTypes';
 
 interface DiagramCanvasProps {
@@ -755,99 +756,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
           style={{ transform: 'translate(-5000px, -5000px)' }}
         >
           <defs>
-            <marker
-              id="oneStart"
-              markerWidth="12"
-              markerHeight="12"
-              refX="0"
-              refY="6"
-              orient="auto"
-              markerUnits="userSpaceOnUse"
-            >
-              <line x1="1" y1="0" x2="1" y2="12" stroke={strokeColor} strokeWidth="1.5" />
-              <line x1="5" y1="0" x2="5" y2="12" stroke={strokeColor} strokeWidth="1.5" />
-            </marker>
-
-            {/* Standard One to Many */}
-            <marker
-              id="manyEnd"
-              markerWidth="12"
-              markerHeight="12"
-              refX="11"
-              refY="6"
-              orient="auto"
-              markerUnits="userSpaceOnUse"
-            >
-              <path
-                d="M0,6 L11,6 M11,0 L0,6 L11,12"
-                fill="none"
-                stroke={strokeColor}
-                strokeWidth="1.5"
-              />
-              <line x1="7" y1="0" x2="7" y2="12" stroke={strokeColor} strokeWidth="1.5" />
-            </marker>
-
-            {/* Standard One to One */}
-            <marker
-              id="oneEnd"
-              markerWidth="12"
-              markerHeight="12"
-              refX="11"
-              refY="6"
-              orient="auto"
-              markerUnits="userSpaceOnUse"
-            >
-              <line x1="7" y1="0" x2="7" y2="12" stroke={strokeColor} strokeWidth="1.5" />
-              <line x1="11" y1="0" x2="11" y2="12" stroke={strokeColor} strokeWidth="1.5" />
-            </marker>
-
-            {/* Zero to Many (Circle + Crow Foot) */}
-            <marker
-              id="zeroManyEnd"
-              markerWidth="14"
-              markerHeight="12"
-              refX="13"
-              refY="6"
-              orient="auto"
-              markerUnits="userSpaceOnUse"
-            >
-              <circle
-                cx="5"
-                cy="6"
-                r="3"
-                fill={theme === 'dark' ? '#1e293b' : 'white'}
-                stroke={strokeColor}
-                strokeWidth="1.5"
-              />
-              <path
-                d="M8,6 L13,6 M13,0 L8,6 L13,12"
-                fill="none"
-                stroke={strokeColor}
-                strokeWidth="1.5"
-              />
-            </marker>
-
-            {/* Zero to One (Circle + Line) */}
-            <marker
-              id="zeroOneEnd"
-              markerWidth="14"
-              markerHeight="12"
-              refX="13"
-              refY="6"
-              orient="auto"
-              markerUnits="userSpaceOnUse"
-            >
-              <circle
-                cx="5"
-                cy="6"
-                r="3"
-                fill={theme === 'dark' ? '#1e293b' : 'white'}
-                stroke={strokeColor}
-                strokeWidth="1.5"
-              />
-              <line x1="13" y1="0" x2="13" y2="12" stroke={strokeColor} strokeWidth="1.5" />
-              <line x1="8" y1="6" x2="13" y2="6" stroke={strokeColor} strokeWidth="1.5" />
-            </marker>
+            <CardinalityMarkers theme={theme} />
           </defs>
           <g transform="translate(5000, 5000)">
             {viewRelationships.map((rel) => {
@@ -860,11 +769,15 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
               // Check if Identifying or Non-Identifying
               const targetTable = viewTables.find((t) => t.id === rel.toTable);
               const targetCol = targetTable?.columns.find((c) => c.id === rel.toCol);
+              
+              const isOptional = targetCol?.isNullable;
+              
               // Identifying: FK is PK (Solid). Non-Identifying: FK is NOT PK (Dashed).
               const isIdentifying = targetCol?.isPk;
               const dashArray = isIdentifying ? 'none' : '4,4';
 
-              let startM: string | undefined = 'url(#oneStart)';
+              // Determine Markers based on type AND nullability
+              let startM: string | undefined = isOptional ? 'url(#zeroOneStart)' : 'url(#oneStart)';
               let endM: string | undefined = 'url(#manyEnd)';
               let startLabel = '1',
                 endLabel = 'N';
@@ -875,7 +788,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
               }
               if (rel.type === '1:0..N') {
                 endM = 'url(#zeroManyEnd)';
-                endLabel = '0..N';
+                endLabel = '0..1..N';
               }
               if (rel.type === '1:0..1') {
                 endM = 'url(#zeroOneEnd)';

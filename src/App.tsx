@@ -9,6 +9,7 @@ import WarningModal from './ui/components/WarningModal';
 import DiagramCanvas from './ui/components/DiagramCanvas';
 import RelationshipMenu from './ui/components/RelationshipMenu';
 import type { DbEngine } from './utils/dbDataTypes';
+import { generateSQL } from './utils/sqlGenerator';
 
 const App = () => {
   // --- Theme State ---
@@ -84,6 +85,19 @@ const App = () => {
     setIsPropertiesPanelOpen(true);
   };
 
+  const handleExportSQL = () => {
+    const sql = generateSQL(tables, relationships, dbEngine);
+    const blob = new Blob([sql], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `erweb_export_${dbEngine}_${new Date().toISOString().split('T')[0]}.sql`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const selectedTable = viewTables.find((t) => t.id === selectedId);
 
   // Active Relationship for Menu
@@ -126,6 +140,7 @@ const App = () => {
           theme={theme}
           setTheme={setTheme}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          onExport={handleExportSQL}
         />
 
         <div className="flex flex-1 overflow-hidden relative">
