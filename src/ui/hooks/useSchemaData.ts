@@ -261,8 +261,22 @@ export const useSchemaData = (viewMode: string) => {
     const sourceCol = sourceTable?.columns.find((c) => c.id === sourceCId);
     const targetCol = targetTable?.columns.find((c) => c.id === targetCId);
 
+    if (!sourceCol || !targetTable || !targetCol) return;
+
     const name =
       `fk_${sourceTable?.name}_${sourceCol?.name}_${targetTable?.name}_${targetCol?.name}`.toLowerCase();
+
+    // Determine default nullability based on source (force NN if source is Identity/PK)
+    const newIsNullable = sourceCol.isIdentity || !sourceCol.isNullable ? false : true;
+
+    // Determine Type: if Target is Unique -> 1:1, else 1:N
+    let relType: Relationship['type'] = '1:N';
+    
+    if (targetCol.isUnique) {
+      relType = newIsNullable ? '1:0..1' : '1:1';
+    } else {
+      relType = newIsNullable ? '1:0..N' : '1:N';
+    }
 
     const newRel: Relationship = {
       id: generateId(),
@@ -271,11 +285,9 @@ export const useSchemaData = (viewMode: string) => {
       fromCol: sourceCId,
       toTable: targetTId,
       toCol: targetCId,
-      type: '1:N',
+      type: relType,
     };
     setRelationships((prev) => [...prev, newRel]);
-
-    if (!sourceCol) return;
 
     setTables((prevTables) =>
       prevTables.map((t) => {
@@ -289,7 +301,7 @@ export const useSchemaData = (viewMode: string) => {
                   isFk: true,
                   type: sourceCol.type,
                   length: sourceCol.length,
-                  isNullable: sourceCol.isIdentity || !sourceCol.isNullable ? false : true,
+                  isNullable: newIsNullable,
                   isIdentity: false, // FORCE IDENTITY FALSE FOR FK
                 };
               }
@@ -670,12 +682,15 @@ export const useSchemaData = (viewMode: string) => {
     }
   };
 
-  const updateRelType = (relId: string, type: any) => {
+  // Advanced update that controls Type and Nullability independently
+  const updateCardinality = (relId: string, type: Relationship['type'], isNullable: boolean) => {
     const rel = relationships.find((r) => r.id === relId);
     if (!rel) return;
+
     setRelationships(relationships.map((r) => (r.id === relId ? { ...r, type } : r)));
-    // ... propagation logic ...
-    if (type === '1:1' || type === '1:N' || type === '1:0..N' || type === '1:0..1') {
+    
+    // Only propagate to column if it's a standard FK relationship (not N:M)
+    if (type !== 'N:M') {
       setTables((prevTables) =>
         prevTables.map((t) => {
           if (t.id === rel.toTable) {
@@ -686,7 +701,7 @@ export const useSchemaData = (viewMode: string) => {
                   return {
                     ...c,
                     isUnique: type === '1:1' || type === '1:0..1',
-                    isNullable: type === '1:0..N' || type === '1:0..1',
+                    isNullable: isNullable, // Controlled explicitly by Left Selector
                   };
                 }
                 return c;
@@ -697,6 +712,12 @@ export const useSchemaData = (viewMode: string) => {
         }),
       );
     }
+  };
+
+  const updateRelType = (relId: string, type: any) => {
+     // Backwards compatibility wrapper, infers nullability from type string
+     const inferredNullable = type === '1:0..N' || type === '1:0..1';
+     updateCardinality(relId, type, inferredNullable);
   };
 
   const updateRelName = (id: string, name: string) => {
@@ -814,6 +835,7 @@ export const useSchemaData = (viewMode: string) => {
       deleteColumn,
       applyConnection,
       updateRelType,
+      updateCardinality, // Exported new function
       updateRelName,
       resetRelRouting,
       setRelRouting,

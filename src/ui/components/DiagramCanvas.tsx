@@ -769,16 +769,16 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
               // Check if Identifying or Non-Identifying
               const targetTable = viewTables.find((t) => t.id === rel.toTable);
               const targetCol = targetTable?.columns.find((c) => c.id === rel.toCol);
-              
+
               const isOptional = targetCol?.isNullable;
-              
+
               // Identifying: FK is PK (Solid). Non-Identifying: FK is NOT PK (Dashed).
               const isIdentifying = targetCol?.isPk;
               const dashArray = isIdentifying ? 'none' : '4,4';
 
               // Determine Markers based on type AND nullability
               let startM: string | undefined = isOptional ? 'url(#zeroOneStart)' : 'url(#oneStart)';
-              let endM: string | undefined = 'url(#manyEnd)';
+              let endM: string | undefined = 'url(#oneManyEnd)';
               let startLabel = '1',
                 endLabel = 'N';
 
@@ -796,13 +796,13 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
               }
 
               if (rel.type === 'N:M') {
-                startM = 'url(#manyEnd)';
+                startM = 'url(#manyStart)';
                 endM = 'url(#manyEnd)';
                 startLabel = 'N';
                 endLabel = 'M';
               }
               if (rel.type === 'N:1') {
-                startM = 'url(#manyEnd)';
+                startM = 'url(#manyStart)';
                 endM = 'url(#oneEnd)';
                 startLabel = 'N';
                 endLabel = '1';
@@ -1036,7 +1036,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
                 strokeWidth="2"
                 strokeDasharray="5,5"
                 fill="none"
-                markerEnd="url(#manyEnd)"
+                markerEnd="url(#oneManyEnd)"
               />
             )}
           </g>

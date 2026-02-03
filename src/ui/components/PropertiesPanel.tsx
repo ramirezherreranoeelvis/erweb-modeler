@@ -277,10 +277,14 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
                         <label
                           className={`flex flex-col items-center group/chk ${col.isNullable || col.isFk ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
-                          title={col.isFk ? 'Foreign Keys cannot be Identity' : 'Identity'}
+                          title={
+                            col.isFk
+                              ? `Foreign Keys cannot be ${dbEngine === 'mysql' ? 'Auto Increment' : 'Identity'}`
+                              : (dbEngine === 'mysql' ? 'Auto Increment' : 'Identity')
+                          }
                         >
                           <span className="text-[8px] font-bold text-slate-400 mb-0.5 group-hover/chk:text-purple-600">
-                            ID
+                            {dbEngine === 'mysql' ? 'AI' : 'ID'}
                           </span>
                           <input
                             type="checkbox"

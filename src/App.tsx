@@ -106,6 +106,14 @@ const App = () => {
     [relMenu, relationships],
   );
 
+  // Determine Nullability of Target Column for Active Rel
+  const targetColNullable = useMemo(() => {
+    if (!activeRel) return false;
+    const tTable = tables.find(t => t.id === activeRel.toTable);
+    const tCol = tTable?.columns.find(c => c.id === activeRel.toCol);
+    return tCol?.isNullable || false;
+  }, [activeRel, tables]);
+
   return (
     <div
       className={`${theme} w-full min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-200`}
@@ -243,10 +251,12 @@ const App = () => {
               x={relMenu.x}
               y={relMenu.y}
               currentName={activeRel.name}
+              currentType={activeRel.type}
+              targetColNullable={targetColNullable}
               onUpdateName={(name) => actions.updateRelName(activeRel.id, name)}
-              onUpdateType={(type) => {
-                actions.updateRelType(activeRel.id, type);
-                setRelMenu(null);
+              onUpdateCardinality={(type, isNullable) => {
+                 actions.updateCardinality(activeRel.id, type, isNullable);
+                 // Don't close menu immediately so user can see changes or adjust routing
               }}
               onResetRouting={() => {
                 actions.resetRelRouting(activeRel.id);
