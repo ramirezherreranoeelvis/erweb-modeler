@@ -23,21 +23,21 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImport, db
   const handleProcess = () => {
     try {
       if (!sqlContent.trim()) {
-        setError("No SQL content to process.");
+        setError('No SQL content to process.');
         return;
       }
-      
-      const { tables, relationships } = parseSQL(sqlContent, dbEngine);
-      
+
+      const { tables, relationships } = parseSQL(sqlContent);
+
       if (tables.length === 0) {
         setError("No tables found. Ensure your SQL contains standard 'CREATE TABLE' statements.");
         return;
       }
-      
+
       onImport(tables, relationships);
     } catch (e) {
       console.error(e);
-      setError("Failed to parse SQL. Please ensure it is valid syntax (MySQL or SQL Server).");
+      setError('Failed to parse SQL. Please ensure it is valid syntax (MySQL or SQL Server).');
     }
   };
 
@@ -59,16 +59,15 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImport, db
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
-        
         {/* Header */}
         <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900 rounded-t-xl">
           <div className="flex items-center gap-2 text-slate-800 dark:text-slate-100 font-bold">
             <div className="bg-blue-100 dark:bg-blue-900 p-1.5 rounded text-blue-600 dark:text-blue-300">
-               <FileInput size={20} />
+              <FileInput size={20} />
             </div>
             Import SQL
           </div>
-          <button 
+          <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
           >
@@ -106,56 +105,57 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImport, db
 
         {/* Body */}
         <div className="p-6 flex-1 flex flex-col gap-4 overflow-hidden">
-           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-3 text-xs text-slate-600 dark:text-slate-300">
-             <strong className="block mb-1 text-blue-700 dark:text-blue-300">
-               Target Engine: {dbEngine === 'mssql' ? 'SQL Server' : 'MySQL'}
-             </strong>
-             Supports <code>CREATE TABLE</code> with standard syntax, brackets <code>[]</code>, backticks <code>`</code>, and <code>GO</code> separators.
-           </div>
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-3 text-xs text-slate-600 dark:text-slate-300">
+            <strong className="block mb-1 text-blue-700 dark:text-blue-300">
+              Target Engine: {dbEngine === 'mssql' ? 'SQL Server' : 'MySQL'}
+            </strong>
+            Supports <code>CREATE TABLE</code> with standard syntax, brackets <code>[]</code>,
+            backticks <code>`</code>, and <code>GO</code> separators.
+          </div>
 
-           {activeTab === 'paste' ? (
-             <textarea
-               className="flex-1 w-full p-4 font-mono text-xs bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-               placeholder={`CREATE TABLE [dbo].[Users] (\n  [id] INT IDENTITY(1,1) PRIMARY KEY,\n  [name] NVARCHAR(50)\n);\nGO`}
-               value={sqlContent}
-               onChange={(e) => {
-                 setSqlContent(e.target.value);
-                 setError(null);
-               }}
-             />
-           ) : (
-             <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors p-8">
-               <Upload size={48} className="text-slate-300 dark:text-slate-600 mb-4" />
-               <p className="text-sm font-bold text-slate-600 dark:text-slate-300 mb-2">
-                 Click to upload .sql or .txt file
-               </p>
-               <input
-                 type="file"
-                 accept=".sql,.txt"
-                 ref={fileInputRef}
-                 onChange={handleFileUpload}
-                 className="hidden"
-               />
-               <button 
-                 onClick={() => fileInputRef.current?.click()}
-                 className="px-4 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-xs font-bold shadow-sm hover:shadow"
-               >
-                 Select File
-               </button>
-               {fileName && (
-                 <div className="mt-4 flex items-center gap-2 text-xs text-green-600 font-bold">
-                    <Check size={14} /> {fileName} loaded
-                 </div>
-               )}
-             </div>
-           )}
+          {activeTab === 'paste' ? (
+            <textarea
+              className="flex-1 w-full p-4 font-mono text-xs bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+              placeholder={`CREATE TABLE [dbo].[Users] (\n  [id] INT IDENTITY(1,1) PRIMARY KEY,\n  [name] NVARCHAR(50)\n);\nGO`}
+              value={sqlContent}
+              onChange={(e) => {
+                setSqlContent(e.target.value);
+                setError(null);
+              }}
+            />
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors p-8">
+              <Upload size={48} className="text-slate-300 dark:text-slate-600 mb-4" />
+              <p className="text-sm font-bold text-slate-600 dark:text-slate-300 mb-2">
+                Click to upload .sql or .txt file
+              </p>
+              <input
+                type="file"
+                accept=".sql,.txt"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="px-4 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-xs font-bold shadow-sm hover:shadow"
+              >
+                Select File
+              </button>
+              {fileName && (
+                <div className="mt-4 flex items-center gap-2 text-xs text-green-600 font-bold">
+                  <Check size={14} /> {fileName} loaded
+                </div>
+              )}
+            </div>
+          )}
 
-           {error && (
-             <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800">
-                <AlertCircle size={16} />
-                {error}
-             </div>
-           )}
+          {error && (
+            <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800">
+              <AlertCircle size={16} />
+              {error}
+            </div>
+          )}
         </div>
 
         {/* Footer */}

@@ -1,6 +1,5 @@
 import { generateId } from './geometry';
 import type { Table, Column, Relationship } from '../ui/types';
-import type { DbEngine } from './dbDataTypes';
 
 // Helper to remove comments, BUT PRESERVE ERWEB_LAYOUT specific lines
 const cleanSQL = (sql: string) => {
