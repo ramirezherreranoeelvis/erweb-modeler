@@ -1,5 +1,5 @@
-import React from 'react';
-import { Database, ZoomIn, ZoomOut, Save, Moon, Sun, Menu, Server } from 'lucide-react';
+import React, { useState } from 'react';
+import { Database, ZoomIn, ZoomOut, Save, Moon, Sun, Menu, Server, FileInput, ChevronDown, Check } from 'lucide-react';
 import { DB_ENGINES } from '../../utils/dbDataTypes';
 import type { DbEngine } from '../../utils/dbDataTypes';
 
@@ -13,7 +13,8 @@ interface ToolbarProps {
   theme: 'light' | 'dark';
   setTheme: React.Dispatch<React.SetStateAction<'light' | 'dark'>>;
   onToggleSidebar: () => void;
-  onExport: () => void;
+  onExport: (includeLayout: boolean) => void;
+  onImportClick: () => void;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -27,7 +28,11 @@ const Toolbar: React.FC<ToolbarProps> = ({
   setTheme,
   onToggleSidebar,
   onExport,
+  onImportClick,
 }) => {
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [includeLayout, setIncludeLayout] = useState(true);
+
   return (
     <header className="h-14 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-4 shadow-sm z-10 shrink-0 transition-colors duration-200 relative">
       <div className="flex items-center gap-3">
@@ -115,13 +120,60 @@ const Toolbar: React.FC<ToolbarProps> = ({
             <ZoomIn size={16} />
           </button>
         </div>
+        
         <button 
-          onClick={onExport}
-          className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 dark:bg-blue-600 hover:bg-slate-900 dark:hover:bg-blue-700 text-white rounded shadow text-xs font-bold transition-colors"
+          onClick={onImportClick}
+          className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded shadow text-xs font-bold transition-colors border border-slate-300 dark:border-slate-600"
+          title="Import SQL"
         >
-          <Save size={14} />
-          <span className="hidden sm:inline">Export SQL</span>
+          <FileInput size={14} />
+          <span className="hidden sm:inline">Import</span>
         </button>
+
+        <div className="relative">
+          <button 
+            onClick={() => setShowExportMenu(!showExportMenu)}
+            className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 dark:bg-blue-600 hover:bg-slate-900 dark:hover:bg-blue-700 text-white rounded shadow text-xs font-bold transition-colors"
+          >
+            <Save size={14} />
+            <span className="hidden sm:inline">Export</span>
+            <ChevronDown size={12} className={showExportMenu ? 'rotate-180' : ''} />
+          </button>
+          
+          {showExportMenu && (
+            <>
+              <div 
+                className="fixed inset-0 z-10" 
+                onClick={() => setShowExportMenu(false)}
+              ></div>
+              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                 <div className="p-2 border-b border-slate-100 dark:border-slate-700">
+                    <label className="flex items-center gap-2 p-2 rounded hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer">
+                       <div className={`w-4 h-4 rounded border flex items-center justify-center ${includeLayout ? 'bg-blue-600 border-blue-600' : 'border-slate-300 dark:border-slate-500'}`}>
+                          {includeLayout && <Check size={10} className="text-white" />}
+                       </div>
+                       <input 
+                         type="checkbox" 
+                         className="hidden" 
+                         checked={includeLayout}
+                         onChange={(e) => setIncludeLayout(e.target.checked)}
+                       />
+                       <span className="text-xs text-slate-700 dark:text-slate-200 font-medium">Include Positions</span>
+                    </label>
+                 </div>
+                 <button
+                    onClick={() => {
+                        onExport(includeLayout);
+                        setShowExportMenu(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-700"
+                 >
+                    Download SQL
+                 </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </header>
   );

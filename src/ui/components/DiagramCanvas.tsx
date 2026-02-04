@@ -141,6 +141,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
       }
 
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedCP) {
+        e.preventDefault();
         onDeleteControlPoint(selectedCP.relId, selectedCP.index);
         setSelectedCP(null);
       }
@@ -197,7 +198,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
     const rel = viewRelationships.find((r) => r.id === relId);
     if (!rel) return [];
 
-    const visualPoints = getRoutePoints(rel, viewTables, viewOptions.lineStyle);
+    const visualPoints = getRoutePoints(rel, viewTables, viewOptions.lineStyle, viewOptions.connectionMode);
 
     const uniquePoints = visualPoints.filter((p, i) => {
       if (i === 0) return true;
@@ -298,7 +299,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
 
   const handleRelClick = (e: React.MouseEvent, relId: string) => {
     e.stopPropagation();
-    if (relId.startsWith('virt_')) return;
+    // Allow clicking virtual relationships to enable context menu for promotion
     setRelMenu({ id: relId, x: e.clientX, y: e.clientY });
   };
 
@@ -313,7 +314,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
     const clickX = (e.clientX - canvasRect.left - pan.x) / zoom;
     const clickY = (e.clientY - canvasRect.top - pan.y) / zoom;
 
-    const allPoints = getRoutePoints(rel, viewTables, viewOptions.lineStyle);
+    const allPoints = getRoutePoints(rel, viewTables, viewOptions.lineStyle, viewOptions.connectionMode);
 
     // Prevent adding point if too close to existing (Increased radius to 20px)
     const isOverExisting = allPoints.some((p) => Math.hypot(p.x - clickX, p.y - clickY) < 20);
@@ -372,7 +373,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
     e: React.PointerEvent,
     tableId: string,
     colId: string,
-    side: 'left' | 'right',
+    side: 'left' | 'right' | 'top' | 'bottom',
   ) => {
     e.stopPropagation();
     setRelMenu(null);
@@ -382,15 +383,30 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
     if (!table) return;
     if (tableId.startsWith('virt_')) return;
 
-    const relativeY = getColumnRelativeY(table, colId);
+    // Determine Y start position based on mode
+    let startY = 0;
+    let startX = 0;
+
+    if (viewOptions.connectionMode === 'table') {
+        // Approximate start based on side
+        const rect = { x: table.x, y: table.y, w: TABLE_WIDTH, h: table.columns.length * 28 + 40 }; // approx height
+        if (side === 'left') { startX = rect.x; startY = rect.y + rect.h / 2; }
+        else if (side === 'right') { startX = rect.x + rect.w; startY = rect.y + rect.h / 2; }
+        else if (side === 'top') { startX = rect.x + rect.w / 2; startY = rect.y; }
+        else if (side === 'bottom') { startX = rect.x + rect.w / 2; startY = rect.y + rect.h; }
+    } else {
+        const relativeY = getColumnRelativeY(table, colId);
+        startX = table.x + (side === 'right' ? TABLE_WIDTH : 0);
+        startY = table.y + relativeY;
+    }
 
     setIsConnecting(true);
     setTempConnection({
       sourceTableId: tableId,
       sourceColId: colId,
-      startX: table.x + (side === 'right' ? TABLE_WIDTH : 0),
-      startY: table.y + relativeY,
-      side,
+      startX: startX,
+      startY: startY,
+      side: side as 'left' | 'right',
     });
   };
 
@@ -615,8 +631,14 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
       // Virtual Table Dragging
       if (dragInfo.targetId.startsWith('virt_')) {
         const relId = dragInfo.targetId.replace('virt_', '');
-        const newX = x - dragInfo.offset.x;
-        const newY = y - dragInfo.offset.y;
+        let newX = x - dragInfo.offset.x;
+        let newY = y - dragInfo.offset.y;
+
+        // Apply Snap to Grid
+        if (viewOptions.snapToGrid) {
+            newX = Math.round(newX / 20) * 20;
+            newY = Math.round(newY / 20) * 20;
+        }
 
         setRelationships((prev) =>
           prev.map((r) => (r.id === relId ? { ...r, x: newX, y: newY } : r)),
@@ -629,8 +651,15 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
       const targetTable = tables.find((t) => t.id === tableId);
 
       if (targetTable) {
-        const newTx = x - dragInfo.offset.x;
-        const newTy = y - dragInfo.offset.y;
+        let newTx = x - dragInfo.offset.x;
+        let newTy = y - dragInfo.offset.y;
+        
+        // Apply Snap to Grid
+        if (viewOptions.snapToGrid) {
+            newTx = Math.round(newTx / 20) * 20;
+            newTy = Math.round(newTy / 20) * 20;
+        }
+
         const dx = newTx - targetTable.x;
         const dy = newTy - targetTable.y;
 
@@ -654,7 +683,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
                 // If the segment from Table to CP[0] is predominantly vertical, shift CP[0].x by dx
                 // If horizontal, shift CP[0].y by dy
 
-                const prevPt = getRoutePoints(r, tables, 'orthogonal')[0]; // Start point (anchor)
+                const prevPt = getRoutePoints(r, tables, 'orthogonal', viewOptions.connectionMode)[0]; // Start point (anchor)
                 const isSegVertical =
                   Math.abs(prevPt.x - firstCP.x) < Math.abs(prevPt.y - firstCP.y);
 
@@ -671,7 +700,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
               if (r.toTable === tableId) {
                 const lastIdx = newCPs.length - 1;
                 const lastCP = newCPs[lastIdx];
-                const routePts = getRoutePoints(r, tables, 'orthogonal');
+                const routePts = getRoutePoints(r, tables, 'orthogonal', viewOptions.connectionMode);
                 const endAnchor = routePts[routePts.length - 1]; // End anchor
 
                 const isSegVertical =
@@ -769,9 +798,9 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
               // Check if Identifying or Non-Identifying
               const targetTable = viewTables.find((t) => t.id === rel.toTable);
               const targetCol = targetTable?.columns.find((c) => c.id === rel.toCol);
-
+              
               const isOptional = targetCol?.isNullable;
-
+              
               // Identifying: FK is PK (Solid). Non-Identifying: FK is NOT PK (Dashed).
               const isIdentifying = targetCol?.isPk;
               const dashArray = isIdentifying ? 'none' : '4,4';
@@ -814,10 +843,10 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
               }
 
               // Calculate position for text labels
-              const pts = getConnectorPoints(rel, viewTables);
-              const midpoint = getCurveMidpoint(rel, viewTables, viewOptions.lineStyle);
+              const pts = getConnectorPoints(rel, viewTables, viewOptions.connectionMode);
+              const midpoint = getCurveMidpoint(rel, viewTables, viewOptions.lineStyle, viewOptions.connectionMode);
 
-              const routePoints = getRoutePoints(rel, viewTables, viewOptions.lineStyle);
+              const routePoints = getRoutePoints(rel, viewTables, viewOptions.lineStyle, viewOptions.connectionMode);
 
               const charWidth = 6;
               const padding = 16;
@@ -835,14 +864,14 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
                 >
                   {/* Hit area */}
                   <path
-                    d={calculatePath(rel, viewTables, viewOptions.lineStyle)}
+                    d={calculatePath(rel, viewTables, viewOptions.lineStyle, viewOptions.connectionMode)}
                     stroke="transparent"
                     strokeWidth="20"
                     fill="none"
                   />
                   {/* Visible line */}
                   <path
-                    d={calculatePath(rel, viewTables, viewOptions.lineStyle)}
+                    d={calculatePath(rel, viewTables, viewOptions.lineStyle, viewOptions.connectionMode)}
                     stroke={isSelected ? '#2563eb' : strokeColor}
                     strokeWidth={isSelected ? '2.5' : '1.5'}
                     fill="none"

@@ -1,3 +1,4 @@
+
 export interface ViewOptions {
   showTypes: boolean;
   showLength: boolean;
@@ -9,6 +10,8 @@ export interface ViewOptions {
   showCardinality: boolean;
   showCardinalityNumeric: boolean;
   showRelationshipNames: boolean;
+  snapToGrid: boolean;
   gridStyle: 'none' | 'dots' | 'squares';
   lineStyle: 'curved' | 'orthogonal';
+  connectionMode: 'column' | 'table'; // New option
 }

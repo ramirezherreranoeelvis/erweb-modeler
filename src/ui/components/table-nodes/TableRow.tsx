@@ -1,8 +1,7 @@
 import React from 'react';
 import { Key, Trash2, GripVertical } from 'lucide-react';
 import type { Column, ViewOptions } from '../../types';
-import { DB_DATA_TYPES, shouldShowLength, isTypeValid } from '../../../utils/dbDataTypes';
-import type { DbEngine } from '../../../utils/dbDataTypes';
+import { DbEngine, DB_DATA_TYPES, shouldShowLength, isTypeValid } from '../../../utils/dbDataTypes';
 
 interface TableRowProps {
   col: Column;
@@ -61,9 +60,10 @@ const TableRow: React.FC<TableRowProps> = ({
 }) => {
   // Get available types based on selected engine
   const availableTypes = DB_DATA_TYPES[dbEngine] || DB_DATA_TYPES['mysql'];
-
+  
   const showLength = shouldShowLength(col.type);
   const isValid = isTypeValid(col.type, dbEngine);
+  const showDots = viewOptions.connectionMode !== 'table';
 
   return (
     <div
@@ -74,7 +74,7 @@ const TableRow: React.FC<TableRowProps> = ({
       className={`group/row relative flex items-center px-3 py-1 text-xs h-[28px] border-b border-transparent transition-colors ${
         draggedIndex === index ? 'opacity-30' : ''
       } ${
-        isValid
+        isValid 
           ? 'hover:bg-blue-50 dark:hover:bg-slate-700 hover:border-blue-100 dark:hover:border-slate-600'
           : 'bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30'
       }`}
@@ -87,8 +87,8 @@ const TableRow: React.FC<TableRowProps> = ({
         </div>
       )}
 
-      {/* Connection Dots: Only show if NOT an FK */}
-      {!col.isFk && (
+      {/* Connection Dots: Only show if NOT an FK AND Mode is 'column' */}
+      {!col.isFk && showDots && (
         <>
           <div
             className={`absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-blue-500 border-2 border-white dark:border-slate-800 rounded-full cursor-crosshair shadow-sm z-20 hover:scale-125 transition-all ${
@@ -175,16 +175,12 @@ const TableRow: React.FC<TableRowProps> = ({
                   className="text-[9px] p-0 border border-blue-300 rounded outline-none bg-white dark:bg-slate-700 dark:text-white"
                 >
                   {!availableTypes.includes(editValue) && (
-                    <option
-                      value={editValue}
-                      className={
-                        isValid
-                          ? 'bg-slate-100 text-slate-600'
-                          : 'bg-red-100 text-red-700 font-bold'
-                      }
-                    >
-                      {editValue} {isValid ? '' : '(Invalid)'}
-                    </option>
+                     <option 
+                        value={editValue} 
+                        className={isValid ? 'bg-slate-100 text-slate-600' : 'bg-red-100 text-red-700 font-bold'}
+                     >
+                       {editValue} {isValid ? '' : '(Invalid)'}
+                     </option>
                   )}
                   {availableTypes.map((t, idx) => (
                     <option key={`${t}-${idx}`} value={t}>
@@ -193,9 +189,7 @@ const TableRow: React.FC<TableRowProps> = ({
                   ))}
                 </select>
               ) : (
-                <span
-                  className={`cursor-pointer ${isValid ? 'hover:text-blue-500 dark:hover:text-blue-400' : 'text-red-600 font-bold'}`}
-                >
+                <span className={`cursor-pointer ${isValid ? 'hover:text-blue-500 dark:hover:text-blue-400' : 'text-red-600 font-bold'}`}>
                   {col.type}
                 </span>
               )}
@@ -225,7 +219,7 @@ const TableRow: React.FC<TableRowProps> = ({
                   (col.length || showLength) && (
                     <span
                       className={`${isValid ? 'text-slate-300 dark:text-slate-500' : 'text-red-400'} ${
-                        showLength
+                         showLength
                           ? 'cursor-pointer hover:text-blue-400 dark:hover:text-blue-400'
                           : ''
                       }`}

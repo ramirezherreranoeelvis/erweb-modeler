@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Trash2, Eye, GitMerge, Edit3, Lock, Grid } from 'lucide-react';
+import { Plus, Trash2, Eye, GitMerge, Edit3, Lock, Grid, Table2, List } from 'lucide-react';
 import type { ViewOptions } from '../types';
 
 interface SidebarProps {
@@ -94,7 +94,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </h3>
         <div className="space-y-2">
           {Object.entries(viewOptions).map(([key, val]) => {
-            if (key === 'lineStyle' || key === 'gridStyle') return null;
+            if (key === 'lineStyle' || key === 'gridStyle' || key === 'connectionMode') return null;
             return (
               <label
                 key={key}
@@ -118,6 +118,35 @@ const Sidebar: React.FC<SidebarProps> = ({
               </label>
             );
           })}
+        </div>
+
+        {/* Connection Mode */}
+        <div className="mt-4">
+          <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+             <List size={12} /> Connection Mode
+          </h3>
+          <div className="flex bg-slate-100 dark:bg-slate-700 p-0.5 rounded border border-slate-200 dark:border-slate-600">
+             <button
+                onClick={() => setViewOptions({ ...viewOptions, connectionMode: 'column' })}
+                className={`flex-1 py-1 text-[10px] font-bold rounded transition-all flex items-center justify-center gap-1 ${
+                  viewOptions.connectionMode === 'column'
+                    ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300 shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                }`}
+             >
+                <List size={10} /> Column
+             </button>
+             <button
+                onClick={() => setViewOptions({ ...viewOptions, connectionMode: 'table' })}
+                className={`flex-1 py-1 text-[10px] font-bold rounded transition-all flex items-center justify-center gap-1 ${
+                  viewOptions.connectionMode === 'table'
+                    ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300 shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                }`}
+             >
+                <Table2 size={10} /> Table
+             </button>
+          </div>
         </div>
 
         {/* Grid Style Selector */}

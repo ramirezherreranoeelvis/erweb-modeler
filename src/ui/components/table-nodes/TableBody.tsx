@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CopyPlus } from 'lucide-react';
 import type { Table, ViewOptions, TempConnection } from '../../types';
 import TableRow from './TableRow';
-import type { DbEngine } from '../../../utils/dbDataTypes';
+import { DbEngine } from '../../../utils/dbDataTypes';
 
 interface TableBodyProps {
   table: Table;
