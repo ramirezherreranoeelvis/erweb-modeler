@@ -141,6 +141,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
       }
 
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedCP) {
+        e.preventDefault();
         onDeleteControlPoint(selectedCP.relId, selectedCP.index);
         setSelectedCP(null);
       }
@@ -298,7 +299,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
 
   const handleRelClick = (e: React.MouseEvent, relId: string) => {
     e.stopPropagation();
-    if (relId.startsWith('virt_')) return;
+    // Allow clicking virtual relationships to enable context menu for promotion
     setRelMenu({ id: relId, x: e.clientX, y: e.clientY });
   };
 
@@ -615,8 +616,14 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
       // Virtual Table Dragging
       if (dragInfo.targetId.startsWith('virt_')) {
         const relId = dragInfo.targetId.replace('virt_', '');
-        const newX = x - dragInfo.offset.x;
-        const newY = y - dragInfo.offset.y;
+        let newX = x - dragInfo.offset.x;
+        let newY = y - dragInfo.offset.y;
+
+        // Apply Snap to Grid
+        if (viewOptions.snapToGrid) {
+            newX = Math.round(newX / 20) * 20;
+            newY = Math.round(newY / 20) * 20;
+        }
 
         setRelationships((prev) =>
           prev.map((r) => (r.id === relId ? { ...r, x: newX, y: newY } : r)),
@@ -629,8 +636,15 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
       const targetTable = tables.find((t) => t.id === tableId);
 
       if (targetTable) {
-        const newTx = x - dragInfo.offset.x;
-        const newTy = y - dragInfo.offset.y;
+        let newTx = x - dragInfo.offset.x;
+        let newTy = y - dragInfo.offset.y;
+        
+        // Apply Snap to Grid
+        if (viewOptions.snapToGrid) {
+            newTx = Math.round(newTx / 20) * 20;
+            newTy = Math.round(newTy / 20) * 20;
+        }
+
         const dx = newTx - targetTable.x;
         const dy = newTy - targetTable.y;
 
@@ -769,9 +783,9 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
               // Check if Identifying or Non-Identifying
               const targetTable = viewTables.find((t) => t.id === rel.toTable);
               const targetCol = targetTable?.columns.find((c) => c.id === rel.toCol);
-
+              
               const isOptional = targetCol?.isNullable;
-
+              
               // Identifying: FK is PK (Solid). Non-Identifying: FK is NOT PK (Dashed).
               const isIdentifying = targetCol?.isPk;
               const dashArray = isIdentifying ? 'none' : '4,4';

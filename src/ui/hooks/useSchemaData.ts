@@ -70,18 +70,6 @@ const INITIAL_TABLES: Table[] = [
         isIdentity: true,
       },
       {
-        id: 'c2',
-        name: 'user_id',
-        logicalName: 'Customer ID',
-        type: 'INT',
-        length: '',
-        isPk: false,
-        isFk: true,
-        isNullable: false,
-        isUnique: false,
-        isIdentity: false,
-      },
-      {
         id: 'c3',
         name: 'order_date',
         logicalName: 'Order Date',
@@ -117,9 +105,31 @@ const INITIAL_RELS: Relationship[] = [
     fromCol: 'c1',
     toTable: 't2',
     toCol: 'c2',
-    type: '1:N',
+    type: 'N:M',
   },
 ];
+
+// Helper: Check if a table is a "Pure" Associative Table (Intersection)
+// Criteria: Exactly 2 columns, both are FKs, and neither is Unique (which would imply 1:1)
+// UPDATE: If isManuallyEditable is true, we never hide it (user wants to see it).
+const isPureAssociativeTable = (table: Table, allRelationships: Relationship[]): boolean => {
+  if (table.isManuallyEditable) return false;
+  if (table.columns.length !== 2) return false;
+
+  const col1 = table.columns[0];
+  const col2 = table.columns[1];
+
+  // Must act as FKs (checked via isFk flag or existing relationships)
+  // And strictly NOT unique (if unique, it behaves like 1:1 or 1:N extension, so show table)
+  if (!col1.isFk || !col2.isFk) return false;
+  if (col1.isUnique || col2.isUnique) return false;
+
+  // Verify relationships exist targeting these columns
+  const rel1 = allRelationships.find(r => r.toTable === table.id && r.toCol === col1.id);
+  const rel2 = allRelationships.find(r => r.toTable === table.id && r.toCol === col2.id);
+
+  return !!(rel1 && rel2);
+};
 
 export const useSchemaData = (viewMode: string) => {
   const [tables, setTables] = useState<Table[]>(INITIAL_TABLES);
@@ -127,695 +137,720 @@ export const useSchemaData = (viewMode: string) => {
 
   // --- Derived State for Physical/Logical Views ---
   const { viewTables, viewRelationships } = useMemo(() => {
-    if (viewMode === 'logical') {
-      return { viewTables: tables, viewRelationships: relationships };
-    }
-
+    // 1. Calculate Virtual Tables for N:M relationships (Physical View)
     const physicalTables = [...tables];
-    const physicalRels: Relationship[] = [];
+    const physicalRels = [...relationships.filter(r => r.type !== 'N:M')];
+    const nmRels = relationships.filter(r => r.type === 'N:M');
 
-    relationships.forEach((rel) => {
-      if (rel.type === 'N:M') {
-        const sourceTable = tables.find((t) => t.id === rel.fromTable);
-        const targetTable = tables.find((t) => t.id === rel.toTable);
+    nmRels.forEach((rel) => {
+      const sourceTable = tables.find((t) => t.id === rel.fromTable);
+      const targetTable = tables.find((t) => t.id === rel.toTable);
 
-        if (sourceTable && targetTable) {
-          const intersectId = `virt_${rel.id}`;
-          const intersectName = rel.name
-            ? rel.name.toUpperCase()
-            : `REL_${sourceTable.name}_${targetTable.name}`;
-          const intersectLogicalName = rel.logicalName || rel.name || 'Association';
+      if (sourceTable && targetTable) {
+        const intersectId = `virt_${rel.id}`;
+        const intersectName = rel.name
+          ? rel.name.toUpperCase()
+          : `REL_${sourceTable.name}_${targetTable.name}`;
+        const intersectLogicalName = rel.logicalName || rel.name || 'Association';
 
-          let midX = (sourceTable.x + targetTable.x) / 2 + TABLE_WIDTH / 2 - TABLE_WIDTH / 2;
-          let midY = (sourceTable.y + targetTable.y) / 2;
-
-          if (rel.x !== undefined && rel.y !== undefined) {
-            midX = rel.x;
-            midY = rel.y;
-          }
-
-          const sourcePks = sourceTable.columns.filter((c) => c.isPk);
-          const targetPks = targetTable.columns.filter((c) => c.isPk);
-          const newColumns: Column[] = [];
-
-          const getVirtualName = (colId: string, defaultName: string) => {
-            if (rel.virtualColNames && rel.virtualColNames[colId]) {
-              return rel.virtualColNames[colId];
-            }
-            return defaultName;
-          };
-
-          sourcePks.forEach((pk) => {
-            const virtColId = `${intersectId}_src_${pk.id}`;
-            newColumns.push({
-              ...pk,
-              id: virtColId,
-              name: getVirtualName(virtColId, pk.name),
-              isPk: true,
-              isFk: true,
-              isIdentity: false,
-              isNullable: false,
-              isUnique: false,
-            });
-          });
-
-          targetPks.forEach((pk) => {
-            const virtColId = `${intersectId}_tgt_${pk.id}`;
-            let defaultName = pk.name;
-            const isManual = rel.virtualColNames && rel.virtualColNames[virtColId];
-
-            if (!isManual && newColumns.some((c) => c.name === defaultName)) {
-              defaultName = `${targetTable.name.toLowerCase()}_${pk.name}`;
-            }
-
-            newColumns.push({
-              ...pk,
-              id: virtColId,
-              name: getVirtualName(virtColId, defaultName),
-              isPk: true,
-              isFk: true,
-              isIdentity: false,
-              isNullable: false,
-              isUnique: false,
-            });
-          });
-
-          physicalTables.push({
-            id: intersectId,
-            name: intersectName,
-            logicalName: intersectLogicalName,
-            x: midX,
-            y: midY,
-            isManuallyEditable: rel.isManuallyEditable,
-            columns: newColumns,
-          });
-
-          sourcePks.forEach((pk) => {
-            const targetCol = newColumns.find((c) => c.id === `${intersectId}_src_${pk.id}`);
-            if (targetCol) {
-              physicalRels.push({
-                id: `virt_rel_src_${rel.id}_${pk.id}`,
-                name: `fk_${sourceTable.name}_${pk.name}_${intersectName}_${targetCol.name}`.toLowerCase(),
-                fromTable: sourceTable.id,
-                fromCol: pk.id,
-                toTable: intersectId,
-                toCol: targetCol.id,
-                type: '1:N',
-              });
-            }
-          });
-
-          targetPks.forEach((pk) => {
-            const targetCol = newColumns.find((c) => c.id === `${intersectId}_tgt_${pk.id}`);
-            if (targetCol) {
-              physicalRels.push({
-                id: `virt_rel_tgt_${rel.id}_${pk.id}`,
-                name: `fk_${targetTable.name}_${pk.name}_${intersectName}_${targetCol.name}`.toLowerCase(),
-                fromTable: targetTable.id,
-                fromCol: pk.id,
-                toTable: intersectId,
-                toCol: targetCol.id,
-                type: '1:N',
-              });
-            }
-          });
+        let midX = (sourceTable.x + targetTable.x) / 2 + TABLE_WIDTH / 2 - TABLE_WIDTH / 2;
+        let midY = (sourceTable.y + targetTable.y) / 2;
+        if (rel.x !== undefined && rel.y !== undefined) {
+          midX = rel.x;
+          midY = rel.y;
         }
-      } else {
-        physicalRels.push(rel);
-      }
-    });
 
-    return { viewTables: physicalTables, viewRelationships: physicalRels };
-  }, [tables, relationships, viewMode]);
+        const sourcePks = sourceTable.columns.filter((c) => c.isPk);
+        const targetPks = targetTable.columns.filter((c) => c.isPk);
+        const newColumns: Column[] = [];
+        const getVirtualName = (colId: string, defaultName: string) => 
+           (rel.virtualColNames && rel.virtualColNames[colId]) ? rel.virtualColNames[colId] : defaultName;
 
-  // --- CRUD Operations ---
+        sourcePks.forEach((pk) => {
+          const virtColId = `${intersectId}_src_${pk.id}`;
+          newColumns.push({
+            ...pk, id: virtColId, name: getVirtualName(virtColId, pk.name),
+            isPk: true, isFk: true, isIdentity: false, isNullable: false, isUnique: false,
+          });
+        });
 
-  const applyConnection = (
-    sourceTId: string,
-    sourceCId: string,
-    targetTId: string,
-    targetCId: string,
-  ) => {
-    const sourceTable = tables.find((t) => t.id === sourceTId);
-    const targetTable = tables.find((t) => t.id === targetTId);
-    const sourceCol = sourceTable?.columns.find((c) => c.id === sourceCId);
-    const targetCol = targetTable?.columns.find((c) => c.id === targetCId);
+        targetPks.forEach((pk) => {
+          const virtColId = `${intersectId}_tgt_${pk.id}`;
+          let defaultName = pk.name;
+          if (newColumns.some(c => c.name === defaultName)) defaultName = `${targetTable.name.toLowerCase()}_${pk.name}`;
+          
+          newColumns.push({
+            ...pk, id: virtColId, name: getVirtualName(virtColId, defaultName),
+            isPk: true, isFk: true, isIdentity: false, isNullable: false, isUnique: false,
+          });
+        });
 
-    if (!sourceCol || !targetTable || !targetCol) return;
+        physicalTables.push({
+          id: intersectId, name: intersectName, logicalName: intersectLogicalName,
+          x: midX, y: midY, isManuallyEditable: rel.isManuallyEditable, columns: newColumns,
+        });
 
-    const name =
-      `fk_${sourceTable?.name}_${sourceCol?.name}_${targetTable?.name}_${targetCol?.name}`.toLowerCase();
-
-    // Determine default nullability based on source (force NN if source is Identity/PK)
-    const newIsNullable = sourceCol.isIdentity || !sourceCol.isNullable ? false : true;
-
-    // Determine Type: if Target is Unique -> 1:1, else 1:N
-    let relType: Relationship['type'] = '1:N';
-    
-    if (targetCol.isUnique) {
-      relType = newIsNullable ? '1:0..1' : '1:1';
-    } else {
-      relType = newIsNullable ? '1:0..N' : '1:N';
-    }
-
-    const newRel: Relationship = {
-      id: generateId(),
-      name: name,
-      fromTable: sourceTId,
-      fromCol: sourceCId,
-      toTable: targetTId,
-      toCol: targetCId,
-      type: relType,
-    };
-    setRelationships((prev) => [...prev, newRel]);
-
-    setTables((prevTables) =>
-      prevTables.map((t) => {
-        if (t.id === targetTId) {
-          return {
-            ...t,
-            columns: t.columns.map((c) => {
-              if (c.id === targetCId) {
-                return {
-                  ...c,
-                  isFk: true,
-                  type: sourceCol.type,
-                  length: sourceCol.length,
-                  isNullable: newIsNullable,
-                  isIdentity: false, // FORCE IDENTITY FALSE FOR FK
-                };
-              }
-              return c;
-            }),
-          };
-        }
-        return t;
-      }),
-    );
-  };
-
-  const propagateColumnChanges = (
-    parentTableId: string,
-    parentColId: string,
-    updatedParentCol: Column,
-  ) => {
-    const childRels = relationships.filter(
-      (r) => r.fromTable === parentTableId && r.fromCol === parentColId,
-    );
-    if (childRels.length === 0) return;
-
-    setTables((prevTables) =>
-      prevTables.map((t) => {
-        const relevantRel = childRels.find((r) => r.toTable === t.id);
-        if (!relevantRel) return t;
-
-        return {
-          ...t,
-          columns: t.columns.map((col) => {
-            if (col.id === relevantRel.toCol) {
-              return {
-                ...col,
-                type: updatedParentCol.type,
-                length: updatedParentCol.length,
-                isNullable:
-                  updatedParentCol.isIdentity || !updatedParentCol.isNullable ? false : true,
-              };
-            }
-            return col;
-          }),
-        };
-      }),
-    );
-  };
-
-  const updateTable = (id: string, field: string, value: any) => {
-    if (id.startsWith('virt_')) {
-      const relId = id.replace('virt_', '');
-      if (field === 'name') {
-        setRelationships((prev) => prev.map((r) => (r.id === relId ? { ...r, name: value } : r)));
-      } else if (field === 'logicalName') {
-        setRelationships((prev) =>
-          prev.map((r) => (r.id === relId ? { ...r, logicalName: value } : r)),
-        );
-      } else if (field === 'isManuallyEditable') {
-        setRelationships((prev) =>
-          prev.map((r) => (r.id === relId ? { ...r, isManuallyEditable: value } : r)),
-        );
-      }
-      return;
-    }
-
-    if (field === 'name') {
-      const nameExists = tables.some(
-        (t) => t.id !== id && t.name.toLowerCase() === value.toLowerCase(),
-      );
-      if (nameExists) return;
-    }
-
-    setTables(tables.map((t) => (t.id === id ? { ...t, [field]: value } : t)));
-  };
-
-  const promoteVirtualTable = (virtId: string) => {
-    const virtualTable = viewTables.find((t) => t.id === virtId);
-    if (!virtualTable) return;
-
-    const relId = virtId.replace('virt_', '');
-    const rel = relationships.find((r) => r.id === relId);
-    if (!rel) return;
-
-    const newTableId = generateId();
-    const newTable: Table = {
-      ...virtualTable,
-      id: newTableId,
-      isManuallyEditable: false,
-      columns: virtualTable.columns.map(
-        (c) =>
-          ({
-            ...c,
-            id: generateId(),
-            _oldId: c.id,
-          }) as any,
-      ),
-    };
-
-    const newRels: Relationship[] = [];
-    const connectedRels = viewRelationships.filter((r) => r.toTable === virtId);
-
-    connectedRels.forEach((virtRel) => {
-      const newCol = newTable.columns.find((c: any) => c._oldId === virtRel.toCol);
-      if (newCol) {
-        newRels.push({
-          id: generateId(),
-          name: virtRel.name,
-          fromTable: virtRel.fromTable,
-          fromCol: virtRel.fromCol,
-          toTable: newTableId,
-          toCol: newCol.id,
-          type: '1:N',
+        // Add virtual relationships for physical view
+        sourcePks.forEach((pk) => {
+          const col = newColumns.find(c => c.id === `${intersectId}_src_${pk.id}`);
+          if (col) physicalRels.push({
+             id: `virt_rel_src_${rel.id}_${pk.id}`, name: `fk_${sourceTable.name}_${pk.name}`,
+             fromTable: sourceTable.id, fromCol: pk.id, toTable: intersectId, toCol: col.id, type: '1:N',
+             sourceSide: rel.sourceSide
+          });
+        });
+        targetPks.forEach((pk) => {
+          const col = newColumns.find(c => c.id === `${intersectId}_tgt_${pk.id}`);
+          if (col) physicalRels.push({
+             id: `virt_rel_tgt_${rel.id}_${pk.id}`, name: `fk_${targetTable.name}_${pk.name}`,
+             fromTable: targetTable.id, fromCol: pk.id, toTable: intersectId, toCol: col.id, type: '1:N',
+             targetSide: rel.targetSide
+          });
         });
       }
     });
 
-    newTable.columns.forEach((c: any) => delete c._oldId);
-
-    const extraCol: Column = {
-      id: generateId(),
-      name: 'new_col',
-      logicalName: 'Attribute',
-      type: 'VARCHAR',
-      length: '45',
-      isPk: false,
-      isFk: false,
-      isNullable: true,
-      isUnique: false,
-      isIdentity: false,
-    };
-    newTable.columns.push(extraCol);
-
-    setTables((prev) => [...prev, newTable]);
-    setRelationships((prev) => [...prev.filter((r) => r.id !== relId), ...newRels]);
-  };
-
-  const addTable = (
-    sidebarWidth: number,
-    pan: { x: number; y: number },
-    zoom: number,
-    selectedId: string | null,
-  ) => {
-    const containerWidth = window.innerWidth - (selectedId ? sidebarWidth : 0) - 224;
-    const containerHeight = window.innerHeight - 56;
-    const centerX = (-pan.x + containerWidth / 2) / zoom;
-    const centerY = (-pan.y + containerHeight / 2) / zoom;
-
-    let newName = 'NEW_TABLE';
-    let counter = 1;
-    while (tables.some((t) => t.name === newName)) {
-      newName = `NEW_TABLE_${counter}`;
-      counter++;
+    if (viewMode === 'physical') {
+      return { viewTables: physicalTables, viewRelationships: physicalRels };
     }
+
+    // 2. Logical View Logic
+    const logicalTables: Table[] = [];
+    const logicalRels: Relationship[] = [...physicalRels.filter(r => !r.id.startsWith('virt_'))]; 
+    const hiddenTableIds = new Set<string>();
+
+    physicalTables.forEach(table => {
+      // If virtual, skip
+      if (table.id.startsWith('virt_')) return;
+
+      if (isPureAssociativeTable(table, relationships)) {
+         hiddenTableIds.add(table.id);
+         
+         // Create Synthetic N:M Relationship
+         const relsToTable = relationships.filter(r => r.toTable === table.id);
+         if (relsToTable.length === 2) {
+            const r1 = relsToTable[0];
+            const r2 = relsToTable[1];
+            logicalRels.push({
+               id: `syn_nm_${table.id}`,
+               name: table.logicalName,
+               fromTable: r1.fromTable,
+               fromCol: r1.fromCol,
+               toTable: r2.fromTable,
+               toCol: r2.fromCol,
+               type: 'N:M',
+               logicalName: table.logicalName
+            });
+         }
+      } else {
+        logicalTables.push(table);
+      }
+    });
+    
+    nmRels.forEach(r => logicalRels.push(r));
+
+    const finalLogicalRels = logicalRels.filter(r => 
+      !hiddenTableIds.has(r.toTable) && !hiddenTableIds.has(r.fromTable)
+    );
+
+    return { viewTables: logicalTables, viewRelationships: finalLogicalRels };
+
+  }, [tables, relationships, viewMode]);
+
+  // --- Helper: Promote Virtual Table to Real Table ---
+  const calculatePromotedState = (virtId: string) => {
+    const relId = virtId.replace('virt_', '');
+    const rel = relationships.find(r => r.id === relId);
+    if (!rel) return null;
+
+    const sourceTable = tables.find(t => t.id === rel.fromTable);
+    const targetTable = tables.find(t => t.id === rel.toTable);
+    if (!sourceTable || !targetTable) return null;
+
+    const newTableId = generateId();
+    const newColumns: Column[] = [];
+    const sourcePks = sourceTable.columns.filter(c => c.isPk);
+    const targetPks = targetTable.columns.filter(c => c.isPk);
+    
+    const getVirtualName = (colId: string, def: string) => (rel.virtualColNames?.[colId] || def);
+
+    sourcePks.forEach(pk => {
+        const virtColId = `virt_${rel.id}_src_${pk.id}`;
+        newColumns.push({
+           ...pk, id: generateId(), name: getVirtualName(virtColId, pk.name),
+           isPk: true, isFk: true, isIdentity: false, isNullable: false, isUnique: false
+        });
+    });
+    targetPks.forEach(pk => {
+        const virtColId = `virt_${rel.id}_tgt_${pk.id}`;
+        let def = pk.name;
+        if (newColumns.some(c => c.name === def)) def = `${targetTable.name.toLowerCase()}_${pk.name}`;
+        newColumns.push({
+           ...pk, id: generateId(), name: getVirtualName(virtColId, def),
+           isPk: true, isFk: true, isIdentity: false, isNullable: false, isUnique: false
+        });
+    });
 
     const newTable: Table = {
-      id: generateId(),
-      name: newName,
-      logicalName: 'New Entity',
-      x: centerX - 140,
-      y: centerY - 100,
-      isManuallyEditable: false,
-      columns: [
-        {
-          id: generateId(),
-          name: 'id',
-          logicalName: 'ID',
-          type: 'INT',
-          length: '',
-          isPk: true,
-          isFk: false,
-          isNullable: false,
-          isUnique: false,
-          isIdentity: true,
-        },
-      ],
+       id: newTableId,
+       name: rel.name ? rel.name.toUpperCase() : `REL_${sourceTable.name}_${targetTable.name}`,
+       logicalName: rel.logicalName || 'Association',
+       x: rel.x || (sourceTable.x + targetTable.x)/2,
+       y: rel.y || (sourceTable.y + targetTable.y)/2,
+       // IMPORTANT: Set to true so it persists as visible even if it still looks like a pure intersection
+       isManuallyEditable: true, 
+       columns: newColumns
     };
-    setTables([...tables, newTable]);
-    return newTable.id;
+
+    const newRels: Relationship[] = [];
+    sourcePks.forEach((pk, i) => {
+       newRels.push({
+          id: generateId(), name: `fk_${sourceTable.name}_${newTable.name}`.toLowerCase(),
+          fromTable: sourceTable.id, fromCol: pk.id,
+          toTable: newTableId, toCol: newColumns[i].id, type: '1:N'
+       });
+    });
+    targetPks.forEach((pk, i) => {
+       newRels.push({
+          id: generateId(), name: `fk_${targetTable.name}_${newTable.name}`.toLowerCase(),
+          fromTable: targetTable.id, fromCol: pk.id,
+          toTable: newTableId, toCol: newColumns[sourcePks.length + i].id, type: '1:N'
+       });
+    });
+
+    return { newTable, newRels, oldRelId: rel.id };
   };
 
-  const deleteTable = (id: string | null) => {
-    if (!id) return;
-    if (id.startsWith('virt_')) return;
+  const actions = {
+    addTable: (sidebarWidth: number, pan: {x: number, y: number}, zoom: number, selectedId: string | null) => {
+        let newName = 'NEW_TABLE';
+        let counter = 1;
+        while (tables.some((t) => t.name === newName)) {
+          newName = `NEW_TABLE_${counter}`;
+          counter++;
+        }
+        const id = generateId();
+        const newTable: Table = {
+          id,
+          name: newName,
+          logicalName: 'New Table',
+          x: (-pan.x + (window.innerWidth - sidebarWidth) / 2) / zoom - TABLE_WIDTH / 2,
+          y: (-pan.y + window.innerHeight / 2) / zoom,
+          isManuallyEditable: true,
+          columns: [
+            {
+              id: generateId(),
+              name: 'id',
+              logicalName: 'ID',
+              type: 'INT',
+              length: '',
+              isPk: true,
+              isFk: false,
+              isNullable: false,
+              isUnique: true,
+              isIdentity: true,
+            },
+          ],
+        };
+        setTables((prev) => [...prev, newTable]);
+        return id;
+    },
+    updateTable: (id: string, field: string, value: any) => {
+        if (id.startsWith('virt_')) {
+            const promo = calculatePromotedState(id);
+            if (promo) {
+                const { newTable, newRels, oldRelId } = promo;
+                const updatedTable = { ...newTable, [field]: value };
+                setTables(prev => [...prev, updatedTable]);
+                setRelationships(prev => [...prev.filter(r => r.id !== oldRelId), ...newRels]);
+            }
+            return;
+        }
 
-    setTables(tables.filter((t) => t.id !== id));
-    setRelationships(relationships.filter((r) => r.fromTable !== id && r.toTable !== id));
-  };
+        if (field === 'name') {
+           if (tables.some(t => t.id !== id && t.name.toLowerCase() === value.toLowerCase())) return;
+        }
 
-  const addColumn = (tableId: string) => {
-    if (tableId.startsWith('virt_')) {
-      promoteVirtualTable(tableId);
-      return;
-    }
+        setTables((prev) =>
+          prev.map((t) => (t.id === id ? { ...t, [field]: value } : t)),
+        );
+    },
+    deleteTable: (id: string | null) => {
+        if (!id) return;
+        
+        // Handle Virtual N:M Table Deletion
+        if (id.startsWith('virt_')) {
+            const relId = id.replace('virt_', '');
+            // Just remove the N:M relationship
+            setRelationships((prev) => prev.filter((r) => r.id !== relId));
+            return;
+        }
 
-    const table = tables.find((t) => t.id === tableId);
-    let newName = 'new_col';
-    let counter = 1;
-    if (table) {
-      while (table.columns.some((c) => c.name === newName)) {
-        newName = `new_col_${counter}`;
-        counter++;
-      }
-    }
+        // Update tables to remove isFk flag if they are losing their FK source
+        setTables((prevTables) => {
+            const remainingTables = prevTables.filter((t) => t.id !== id);
+            // Relationships being removed that might affect FK status
+            const relsRemoving = relationships.filter(r => r.fromTable === id || r.toTable === id);
 
-    const newCol: Column = {
-      id: generateId(),
-      name: newName,
-      logicalName: 'Attribute',
-      type: 'VARCHAR',
-      length: '45',
-      isPk: false,
-      isFk: false,
-      isNullable: true,
-      isUnique: false,
-      isIdentity: false,
-    };
-    setTables(
-      tables.map((t) => {
-        if (t.id === tableId) return { ...t, columns: [...t.columns, newCol] };
-        return t;
-      }),
-    );
-  };
+            return remainingTables.map(t => {
+                // Check if this table is the TARGET of any removed relationship (meaning it held the FK)
+                const incomingRelsRemoved = relsRemoving.filter(r => r.toTable === t.id && r.fromTable === id);
+                
+                if (incomingRelsRemoved.length === 0) return t;
 
-  const updateColumn = (tableId: string, colId: string, field: string, value: any) => {
-    if (tableId.startsWith('virt_')) {
-      const relId = tableId.replace('virt_', '');
-      if (field === 'name') {
+                const colsToCheck = new Set(incomingRelsRemoved.map(r => r.toCol));
+                
+                return {
+                    ...t,
+                    columns: t.columns.map(c => {
+                        if (colsToCheck.has(c.id)) {
+                             // Check if there are OTHER existing relationships targeting this column
+                             // that are NOT being removed (i.e., fromTable is not the deleted id)
+                             const otherRels = relationships.filter(r => 
+                                 r.toTable === t.id && 
+                                 r.toCol === c.id && 
+                                 r.fromTable !== id
+                             );
+                             
+                             if (otherRels.length === 0) {
+                                 return { ...c, isFk: false };
+                             }
+                        }
+                        return c;
+                    })
+                };
+            });
+        });
+
         setRelationships((prev) =>
-          prev.map((r) => {
-            if (r.id === relId) {
+          prev.filter((r) => r.fromTable !== id && r.toTable !== id),
+        );
+    },
+    addColumn: (tableId: string) => {
+        if (tableId.startsWith('virt_')) {
+            const promo = calculatePromotedState(tableId);
+            if (promo) {
+                const { newTable, newRels, oldRelId } = promo;
+                newTable.columns.push({
+                    id: generateId(),
+                    name: 'new_column',
+                    logicalName: 'New Column',
+                    type: 'VARCHAR',
+                    length: '255',
+                    isPk: false,
+                    isFk: false,
+                    isNullable: true,
+                    isUnique: false,
+                    isIdentity: false,
+                });
+                setTables(prev => [...prev, newTable]);
+                setRelationships(prev => [...prev.filter(r => r.id !== oldRelId), ...newRels]);
+            }
+            return;
+        }
+        setTables((prev) =>
+          prev.map((t) => {
+            if (t.id === tableId) {
               return {
-                ...r,
-                virtualColNames: {
-                  ...(r.virtualColNames || {}),
-                  [colId]: value,
-                },
+                ...t,
+                columns: [
+                  ...t.columns,
+                  {
+                    id: generateId(),
+                    name: 'new_column',
+                    logicalName: 'New Column',
+                    type: 'VARCHAR',
+                    length: '255',
+                    isPk: false,
+                    isFk: false,
+                    isNullable: true,
+                    isUnique: false,
+                    isIdentity: false,
+                  },
+                ],
               };
             }
-            return r;
+            return t;
           }),
         );
-      }
-      return;
-    }
+    },
+    updateColumn: (tableId: string, colId: string, field: string, value: any) => {
+        if (tableId.startsWith('virt_')) {
+            const promo = calculatePromotedState(tableId);
+            if (promo) {
+                const { newTable, newRels, oldRelId } = promo;
+                const virtualTable = viewTables.find(t => t.id === tableId);
+                const colIndex = virtualTable?.columns.findIndex(c => c.id === colId) ?? -1;
 
-    if (field === 'name') {
-      const table = tables.find((t) => t.id === tableId);
-      if (table) {
-        const nameExists = table.columns.some(
-          (c) => c.id !== colId && c.name.toLowerCase() === value.toLowerCase(),
-        );
-        if (nameExists) return;
-      }
-    }
-
-    let updatedColumnData: Column | null = null;
-    setTables((prevTables) => {
-      const newTables = prevTables.map((t) => {
-        if (t.id === tableId) {
-          const newColumns = t.columns.map((c) => {
-            if (c.id === colId) {
-              let updatedCol = { ...c };
-
-              if (field === 'type' && typeof value === 'string') {
-                const match = value.match(/^([^(]+)(?:\(([^)]*)\))?$/);
-                if (match) {
-                  updatedCol.type = match[1].trim();
-                  // If parentheses existed (match[2] is defined), update length
-                  if (match[2] !== undefined) {
-                    updatedCol.length = match[2];
-                  }
-                } else {
-                  updatedCol.type = value;
+                if (colIndex !== -1 && newTable.columns[colIndex]) {
+                    const targetCol = newTable.columns[colIndex];
+                    let updatedCol = { ...targetCol, [field]: value };
+                    
+                    if (field === 'type' && typeof value === 'string') {
+                        const match = value.match(/^([^(]+)(?:\(([^)]*)\))?$/);
+                        if (match) {
+                            updatedCol.type = match[1].trim();
+                            if (match[2] !== undefined) updatedCol.length = match[2];
+                        } else {
+                            updatedCol.type = value;
+                        }
+                    }
+                    
+                    if (field === 'isNullable' && value === true) {
+                        updatedCol.isPk = false;
+                        updatedCol.isIdentity = false;
+                    }
+                    if (field === 'isPk' && value === true) updatedCol.isNullable = false;
+                    
+                    newTable.columns[colIndex] = updatedCol;
                 }
-              } else {
-                updatedCol = { ...c, [field]: value };
-              }
 
-              if (field === 'isNullable' && value === true) {
-                updatedCol.isPk = false;
-                updatedCol.isIdentity = false;
-              }
-              if (field === 'isPk' && value === true) {
-                updatedCol.isNullable = false;
-              }
-              if (field === 'isIdentity' && value === true) {
-                if (updatedCol.isFk) {
-                  updatedCol.isIdentity = false;
-                } else {
-                  updatedCol.isNullable = false;
-                }
-              }
-              updatedColumnData = updatedCol;
-              return updatedCol;
+                setTables(prev => [...prev, newTable]);
+                setRelationships(prev => [...prev.filter(r => r.id !== oldRelId), ...newRels]);
             }
-            return c;
-          });
-          return { ...t, columns: newColumns };
+            return;
         }
-        return t;
-      });
-      return newTables;
-    });
 
-    // Defer propagation
-    setTimeout(() => {
-      if (updatedColumnData) {
-        propagateColumnChanges(tableId, colId, updatedColumnData);
-        if (updatedColumnData.isFk) {
-          setRelationships((prev) =>
-            prev.map((r) => {
-              if (r.toTable === tableId && r.toCol === colId) {
-                if (field === 'isUnique') {
-                  if (value === true)
-                    return {
-                      ...r,
-                      type: updatedColumnData!.isNullable ? '1:0..1' : '1:1',
-                    };
-                  else
-                    return {
-                      ...r,
-                      type: updatedColumnData!.isNullable ? '1:0..N' : '1:N',
-                    };
-                }
-              }
-              return r;
-            }),
-          );
+        if (field === 'name') {
+           const table = tables.find(t => t.id === tableId);
+           if (table && table.columns.some(c => c.id !== colId && c.name.toLowerCase() === value.toLowerCase())) return;
         }
-      }
-    }, 0);
-  };
 
-  const moveColumn = (tableId: string, fromIndex: number, toIndex: number) => {
-    setTables((prevTables) =>
-      prevTables.map((t) => {
-        if (t.id !== tableId) return t;
-        const newCols = [...t.columns];
-        const [movedCol] = newCols.splice(fromIndex, 1);
-        newCols.splice(toIndex, 0, movedCol);
-        return { ...t, columns: newCols };
-      }),
-    );
-  };
+        let updatedColumnData: Column | null = null;
 
-  const deleteColumn = (tableId: string, colId: string) => {
-    if (tableId.startsWith('virt_')) return;
-    const relationshipsAsSource = relationships.filter(
-      (r) => r.fromTable === tableId && r.fromCol === colId,
-    );
-    const relationshipsAsTarget = relationships.filter(
-      (r) => r.toTable === tableId && r.toCol === colId,
-    );
-    const relsToDelete = [...relationshipsAsSource, ...relationshipsAsTarget];
-    const relIdsToDelete = new Set(relsToDelete.map((r) => r.id));
-    const columnsToDelete: { tableId: string; colId: string }[] = [];
-    columnsToDelete.push({ tableId, colId });
-    relationshipsAsSource.forEach((r) => {
-      if (r.type !== 'N:M') {
-        columnsToDelete.push({ tableId: r.toTable, colId: r.toCol });
-      }
-    });
+        setTables((prev) =>
+          prev.map((t) => {
+            if (t.id === tableId) {
+              const newColumns = t.columns.map((c) => {
+                if (c.id === colId) {
+                  let updatedCol = { ...c, [field]: value };
+                  
+                  if (field === 'type' && typeof value === 'string') {
+                    const match = value.match(/^([^(]+)(?:\(([^)]*)\))?$/);
+                    if (match) {
+                        updatedCol.type = match[1].trim();
+                        if (match[2] !== undefined) updatedCol.length = match[2];
+                    } else {
+                        updatedCol.type = value;
+                    }
+                  }
 
-    setTables((prevTables) =>
-      prevTables.map((t) => {
-        const colsToRemove = columnsToDelete.filter((del) => del.tableId === t.id);
-        if (colsToRemove.length > 0) {
-          const idsToRemove = new Set(colsToRemove.map((c) => c.colId));
-          return {
-            ...t,
-            columns: t.columns.filter((c) => !idsToRemove.has(c.id)),
-          };
-        }
-        return t;
-      }),
-    );
-    if (relIdsToDelete.size > 0) {
-      setRelationships((prev) => prev.filter((r) => !relIdsToDelete.has(r.id)));
-    }
-  };
-
-  // Advanced update that controls Type and Nullability independently
-  const updateCardinality = (relId: string, type: Relationship['type'], isNullable: boolean) => {
-    const rel = relationships.find((r) => r.id === relId);
-    if (!rel) return;
-
-    setRelationships(relationships.map((r) => (r.id === relId ? { ...r, type } : r)));
-    
-    // Only propagate to column if it's a standard FK relationship (not N:M)
-    if (type !== 'N:M') {
-      setTables((prevTables) =>
-        prevTables.map((t) => {
-          if (t.id === rel.toTable) {
-            return {
-              ...t,
-              columns: t.columns.map((c) => {
-                if (c.id === rel.toCol) {
-                  return {
-                    ...c,
-                    isUnique: type === '1:1' || type === '1:0..1',
-                    isNullable: isNullable, // Controlled explicitly by Left Selector
-                  };
+                  if (field === 'isNullable' && value === true) {
+                    updatedCol.isPk = false;
+                    updatedCol.isIdentity = false;
+                  }
+                  if (field === 'isPk' && value === true) {
+                    updatedCol.isNullable = false;
+                  }
+                  if (field === 'isIdentity' && value === true) {
+                    if (updatedCol.isFk) updatedCol.isIdentity = false;
+                    else updatedCol.isNullable = false;
+                  }
+                  updatedColumnData = updatedCol;
+                  return updatedCol;
                 }
                 return c;
-              }),
-            };
-          }
-          return t;
-        }),
-      );
+              });
+              return { ...t, columns: newColumns };
+            }
+            return t;
+          }),
+        );
+
+        if (updatedColumnData) {
+            const upCol = updatedColumnData as Column;
+            if (upCol.isFk) {
+                setRelationships(prev => prev.map(r => {
+                    if (r.toTable === tableId && r.toCol === colId && field === 'isUnique') {
+                         return { 
+                             ...r, 
+                             type: value ? (upCol.isNullable ? '1:0..1' : '1:1') : (upCol.isNullable ? '1:0..N' : '1:N') 
+                         };
+                    }
+                    return r;
+                }));
+            }
+        }
+    },
+    deleteColumn: (tableId: string, colId: string) => {
+        if (tableId.startsWith('virt_')) return; 
+        
+        setTables((prev) =>
+          prev.map((t) => {
+            if (t.id === tableId) {
+              return {
+                ...t,
+                columns: t.columns.filter((c) => c.id !== colId),
+              };
+            }
+            return t;
+          }),
+        );
+        setRelationships((prev) =>
+          prev.filter(
+            (r) =>
+              !(r.fromTable === tableId && r.fromCol === colId) &&
+              !(r.toTable === tableId && r.toCol === colId),
+          ),
+        );
+    },
+    moveColumn: (tableId: string, fromIndex: number, toIndex: number) => {
+        setTables((prev) =>
+          prev.map((t) => {
+            if (t.id === tableId) {
+              const newCols = [...t.columns];
+              const [moved] = newCols.splice(fromIndex, 1);
+              newCols.splice(toIndex, 0, moved);
+              return { ...t, columns: newCols };
+            }
+            return t;
+          }),
+        );
+    },
+    applyConnection: (sourceTId: string, sourceCId: string, targetTId: string, targetCId: string) => {
+        const relId = generateId();
+        const sourceTable = tables.find(t => t.id === sourceTId);
+        const sourceCol = sourceTable?.columns.find(c => c.id === sourceCId);
+        
+        if (!sourceTable || !sourceCol) return;
+
+        const relName = `fk_${sourceTable.name}_${Math.floor(Math.random() * 1000)}`;
+        
+        setTables(prev => prev.map(t => {
+            if (t.id === targetTId) {
+                return {
+                    ...t,
+                    columns: t.columns.map(c => {
+                        if (c.id === targetCId) {
+                            return {
+                                ...c,
+                                type: sourceCol.type,
+                                length: sourceCol.length,
+                                isFk: true
+                            }
+                        }
+                        return c;
+                    })
+                }
+            }
+            return t;
+        }));
+
+        const newRel: Relationship = {
+            id: relId,
+            name: relName,
+            fromTable: sourceTId,
+            fromCol: sourceCId,
+            toTable: targetTId,
+            toCol: targetCId,
+            type: '1:N'
+        };
+        setRelationships(prev => [...prev, newRel]);
+    },
+    updateRelName: (id: string, name: string) => {
+        if (id.startsWith('virt_rel_')) {
+            const virtRel = viewRelationships.find(r => r.id === id);
+            if (!virtRel) return;
+            const promo = calculatePromotedState(virtRel.toTable);
+            if (promo) {
+                const { newTable, newRels, oldRelId } = promo;
+                const targetRelIndex = newRels.findIndex(r => r.fromTable === virtRel.fromTable && r.fromCol === virtRel.fromCol);
+                if (targetRelIndex !== -1) {
+                    newRels[targetRelIndex].name = name;
+                }
+                setTables(prev => [...prev, newTable]);
+                setRelationships(prev => [...prev.filter(r => r.id !== oldRelId), ...newRels]);
+            }
+            return;
+        }
+        setRelationships(prev => prev.map(r => r.id === id ? { ...r, name } : r));
+    },
+    updateCardinality: (relId: string, type: Relationship['type'], isNullable: boolean) => {
+        if (relId.startsWith('virt_rel_')) {
+             const virtRel = viewRelationships.find(r => r.id === relId);
+             if (!virtRel) return;
+             const promo = calculatePromotedState(virtRel.toTable);
+             if (promo) {
+                 let { newTable, newRels, oldRelId } = promo;
+                 const targetRelIndex = newRels.findIndex(r => r.fromTable === virtRel.fromTable && r.fromCol === virtRel.fromCol);
+                 if (targetRelIndex !== -1) {
+                     const targetRel = newRels[targetRelIndex];
+                     newRels[targetRelIndex] = { ...targetRel, type };
+
+                     const colId = targetRel.toCol;
+                     newTable = {
+                         ...newTable,
+                         columns: newTable.columns.map(c => {
+                             if (c.id === colId) {
+                                 return {
+                                     ...c,
+                                     isUnique: type === '1:1' || type === '1:0..1',
+                                     isNullable: isNullable
+                                 };
+                             }
+                             return c;
+                         })
+                     };
+                 }
+                 setTables(prev => [...prev, newTable]);
+                 setRelationships(prev => [...prev.filter(r => r.id !== oldRelId), ...newRels]);
+             }
+             return;
+        }
+
+        const rel = relationships.find(r => r.id === relId);
+        if (!rel) return;
+
+        // If switching TO N:M, the original target column is no longer an FK
+        // unless it's used by other relationships
+        if (type === 'N:M' && rel.type !== 'N:M') {
+             setTables(prev => prev.map(t => {
+                 if (t.id === rel.toTable) {
+                     return {
+                         ...t,
+                         columns: t.columns.map(c => {
+                             if (c.id === rel.toCol) {
+                                 // Ensure no other relationship needs this as FK
+                                 const otherRels = relationships.filter(r => 
+                                     r.id !== relId && 
+                                     r.toTable === t.id && 
+                                     r.toCol === c.id
+                                 );
+                                 if (otherRels.length === 0) {
+                                     return { ...c, isFk: false };
+                                 }
+                             }
+                             return c;
+                         })
+                     };
+                 }
+                 return t;
+             }));
+        }
+        
+        setRelationships(prev => prev.map(r => r.id === relId ? { ...r, type } : r));
+        
+        if (type !== 'N:M' && rel.type !== 'N:M') {
+             setTables(prev => prev.map(t => {
+                 if (t.id === rel.toTable) {
+                     return {
+                         ...t,
+                         columns: t.columns.map(c => {
+                             if (c.id === rel.toCol) {
+                                 return { 
+                                     ...c, 
+                                     isNullable,
+                                     isUnique: type === '1:1' || type === '1:0..1'
+                                 };
+                             }
+                             return c;
+                         })
+                     };
+                 }
+                 return t;
+             }));
+        }
+    },
+    deleteRel: (id: string) => {
+        if (id.startsWith('virt_rel_')) {
+            const virtRel = viewRelationships.find(r => r.id === id);
+            if (!virtRel) return;
+            const promo = calculatePromotedState(virtRel.toTable);
+            if (promo) {
+                const { newTable, newRels, oldRelId } = promo;
+                
+                const filteredRels = newRels.filter(r => !(r.fromTable === virtRel.fromTable && r.fromCol === virtRel.fromCol));
+                const deletedRel = newRels.find(r => r.fromTable === virtRel.fromTable && r.fromCol === virtRel.fromCol);
+                let finalTable = newTable;
+                if (deletedRel) {
+                    finalTable = {
+                        ...newTable,
+                        columns: newTable.columns.map(c => c.id === deletedRel.toCol ? { ...c, isFk: false } : c)
+                    };
+                }
+
+                setTables(prev => [...prev, finalTable]);
+                setRelationships(prev => [...prev.filter(r => r.id !== oldRelId), ...filteredRels]);
+            }
+            return;
+        }
+
+        const rel = relationships.find(r => r.id === id);
+        if (!rel) return;
+        
+        setRelationships(prev => prev.filter(r => r.id !== id));
+        
+        if (rel.type !== 'N:M') {
+             setTables(prev => prev.map(t => {
+                 if (t.id === rel.toTable) {
+                     // Check if this column is used by ANY OTHER relationship
+                     const otherRels = relationships.filter(r => 
+                         r.id !== id && 
+                         r.toTable === t.id && 
+                         r.toCol === rel.toCol
+                     );
+                     
+                     if (otherRels.length === 0) {
+                        return {
+                            ...t,
+                            columns: t.columns.map(c => {
+                                if (c.id === rel.toCol) {
+                                    return { ...c, isFk: false };
+                                }
+                                return c;
+                            })
+                        };
+                     }
+                 }
+                 return t;
+             }));
+        }
+    },
+    resetRelRouting: (id: string) => {
+        setRelationships(prev => prev.map(r => r.id === id ? { ...r, sourceSide: undefined, targetSide: undefined, controlPoints: [] } : r));
+    },
+    setRelRouting: (id: string, source: 'left' | 'right', target: 'left' | 'right') => {
+        setRelationships(prev => prev.map(r => r.id === id ? { ...r, sourceSide: source, targetSide: target } : r));
+    },
+    addControlPoint: (relId: string, x: number, y: number, index?: number) => {
+        setRelationships(prev => prev.map(r => {
+            if (r.id === relId) {
+                const cps = [...(r.controlPoints || [])];
+                if (index !== undefined) {
+                    cps.splice(index, 0, { x, y });
+                } else {
+                    cps.push({ x, y });
+                }
+                return { ...r, controlPoints: cps };
+            }
+            return r;
+        }));
+    },
+    updateControlPoint: (relId: string, index: number, x: number, y: number) => {
+        setRelationships(prev => prev.map(r => {
+            if (r.id === relId && r.controlPoints) {
+                const cps = [...r.controlPoints];
+                if (cps[index]) {
+                    cps[index] = { x, y };
+                }
+                return { ...r, controlPoints: cps };
+            }
+            return r;
+        }));
+    },
+    deleteControlPoint: (relId: string, index: number) => {
+        setRelationships(prev => prev.map(r => {
+            if (r.id === relId && r.controlPoints) {
+                const cps = [...r.controlPoints];
+                cps.splice(index, 1);
+                return { ...r, controlPoints: cps };
+            }
+            return r;
+        }));
+    },
+    setControlPoints: (relId: string, points: { x: number; y: number }[]) => {
+        setRelationships(prev => prev.map(r => r.id === relId ? { ...r, controlPoints: points } : r));
     }
-  };
-
-  const updateRelType = (relId: string, type: any) => {
-     // Backwards compatibility wrapper, infers nullability from type string
-     const inferredNullable = type === '1:0..N' || type === '1:0..1';
-     updateCardinality(relId, type, inferredNullable);
-  };
-
-  const updateRelName = (id: string, name: string) => {
-    setRelationships(relationships.map((r) => (r.id === id ? { ...r, name } : r)));
-  };
-
-  const resetRelRouting = (relId: string) => {
-    setRelationships((prev) =>
-      prev.map((r) =>
-        r.id === relId
-          ? { ...r, sourceSide: undefined, targetSide: undefined, controlPoints: undefined }
-          : r,
-      ),
-    );
-  };
-
-  const setRelRouting = (
-    relId: string,
-    sourceSide: 'left' | 'right',
-    targetSide: 'left' | 'right',
-  ) => {
-    setRelationships((prev) =>
-      prev.map((r) => (r.id === relId ? { ...r, sourceSide, targetSide } : r)),
-    );
-  };
-
-  const deleteRel = (relId: string) => {
-    const rel = relationships.find((r) => r.id === relId);
-    if (rel) {
-      setTables((prev) =>
-        prev.map((t) => {
-          if (t.id === rel.toTable) {
-            return {
-              ...t,
-              columns: t.columns.map((c) => (c.id === rel.toCol ? { ...c, isFk: false } : c)),
-            };
-          }
-          return t;
-        }),
-      );
-    }
-    setRelationships(relationships.filter((r) => r.id !== relId));
-  };
-
-  // --- Manual Control Points ---
-
-  const addControlPoint = (relId: string, x: number, y: number, index?: number) => {
-    setRelationships((prev) =>
-      prev.map((r) => {
-        if (r.id === relId) {
-          const currentPoints = r.controlPoints || [];
-          let newPoints = [...currentPoints];
-          if (index !== undefined && index >= 0 && index <= currentPoints.length) {
-            newPoints.splice(index, 0, { x, y });
-          } else {
-            newPoints.push({ x, y });
-          }
-          return {
-            ...r,
-            controlPoints: newPoints,
-          };
-        }
-        return r;
-      }),
-    );
-  };
-
-  const setControlPoints = (relId: string, points: { x: number; y: number }[]) => {
-    setRelationships((prev) =>
-      prev.map((r) => (r.id === relId ? { ...r, controlPoints: points } : r)),
-    );
-  };
-
-  const updateControlPoint = (relId: string, index: number, x: number, y: number) => {
-    setRelationships((prev) =>
-      prev.map((r) => {
-        if (r.id === relId && r.controlPoints) {
-          const newPoints = [...r.controlPoints];
-          if (newPoints[index]) {
-            newPoints[index] = { x, y };
-          }
-          return { ...r, controlPoints: newPoints };
-        }
-        return r;
-      }),
-    );
-  };
-
-  const deleteControlPoint = (relId: string, index: number) => {
-    setRelationships((prev) =>
-      prev.map((r) => {
-        if (r.id === relId && r.controlPoints) {
-          const newPoints = r.controlPoints.filter((_, i) => i !== index);
-          return { ...r, controlPoints: newPoints.length > 0 ? newPoints : undefined };
-        }
-        return r;
-      }),
-    );
   };
 
   return {
@@ -825,25 +860,6 @@ export const useSchemaData = (viewMode: string) => {
     setRelationships,
     viewTables,
     viewRelationships,
-    actions: {
-      addTable,
-      updateTable,
-      deleteTable,
-      addColumn,
-      updateColumn,
-      moveColumn,
-      deleteColumn,
-      applyConnection,
-      updateRelType,
-      updateCardinality, // Exported new function
-      updateRelName,
-      resetRelRouting,
-      setRelRouting,
-      deleteRel,
-      addControlPoint,
-      setControlPoints,
-      updateControlPoint,
-      deleteControlPoint,
-    },
+    actions
   };
 };

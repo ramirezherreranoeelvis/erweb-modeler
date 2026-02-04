@@ -4,7 +4,7 @@ import type { Table, ViewOptions, TempConnection } from '../../types';
 import { TABLE_WIDTH } from '../../../utils/geometry';
 import TableHeader from './TableHeader';
 import TableBody from './TableBody';
-import type { DbEngine } from '../../../utils/dbDataTypes';
+import { DbEngine } from '../../../utils/dbDataTypes';
 
 interface TableNodeProps {
   table: Table;

@@ -5,7 +5,8 @@ import { generateId } from './geometry';
 export const generateSQL = (
   tables: Table[],
   relationships: Relationship[],
-  engine: DbEngine
+  engine: DbEngine,
+  includeLayout: boolean = false
 ): string => {
   const isMysql = engine === 'mysql';
   const q = isMysql ? '`' : '[';
@@ -26,12 +27,10 @@ export const generateSQL = (
           ? rel.name.toUpperCase()
           : `${sourceTable.name}_${targetTable.name}`;
         
-        // Generate a deterministic ID for export purposes if possible, but random is fine for script generation
         const intersectId = `virt_${rel.id}`;
         
         const newColumns: Column[] = [];
         
-        // Helper to get custom name or default
         const getColName = (baseId: string, defaultName: string) => {
           if (rel.virtualColNames && rel.virtualColNames[baseId]) {
             return rel.virtualColNames[baseId];
@@ -47,10 +46,10 @@ export const generateSQL = (
             newColumns.push({
                 ...pk,
                 id: virtColId,
-                name: getColName(virtColId, pk.name), // Usually keeps PK name
+                name: getColName(virtColId, pk.name),
                 isPk: true,
                 isFk: true,
-                isIdentity: false, // Intersection keys are not identities usually
+                isIdentity: false,
                 isNullable: false,
                 isUnique: false
             });
@@ -58,7 +57,6 @@ export const generateSQL = (
 
         targetPks.forEach((pk) => {
             const virtColId = `${intersectId}_tgt_${pk.id}`;
-            // Avoid name collision if both tables have "id"
             let defaultName = pk.name;
             if (newColumns.some(c => c.name.toLowerCase() === defaultName.toLowerCase())) {
                 defaultName = `${targetTable.name}_${pk.name}`;
@@ -76,15 +74,16 @@ export const generateSQL = (
             });
         });
 
+        // Use midpoint for virtual table position
         physTables.push({
             id: intersectId,
             name: intersectName,
             logicalName: intersectName,
-            x: 0, y: 0,
+            x: (sourceTable.x + targetTable.x) / 2, 
+            y: (sourceTable.y + targetTable.y) / 2,
             columns: newColumns
         });
 
-        // Create relationships to the new table
         sourcePks.forEach((pk) => {
             const col = newColumns.find(c => c.id === `${intersectId}_src_${pk.id}`);
             if (col) {
@@ -125,8 +124,14 @@ export const generateSQL = (
   sql += `-- Engine: ${engine === 'mysql' ? 'MySQL' : 'SQL Server'}\n`;
   sql += `-- Date: ${new Date().toLocaleString()}\n\n`;
 
-  // Process tables
   physTables.forEach((table) => {
+    // Add Layout Comment if requested (New Friendly Format)
+    if (includeLayout) {
+        const x = Math.round(table.x);
+        const y = Math.round(table.y);
+        sql += `-- ERWEB_LAYOUT\n-- x: ${x}\n-- y: ${y}\n`;
+    }
+
     sql += `CREATE TABLE ${q}${table.name}${qe} (\n`;
 
     const pkCols: string[] = [];
@@ -135,17 +140,8 @@ export const generateSQL = (
     table.columns.forEach((col) => {
       let line = `  ${q}${col.name}${qe}`;
       
-      // Type Logic
       let type = col.type;
-      
-      // Basic cleanup: remove empty parens ()
       if (type.endsWith('()')) type = type.slice(0, -2);
-      
-      // Check if we need to append length
-      // If the type already has parens (e.g. DECIMAL(10,2)), we assume it's fully specified.
-      // If not, and there is a length value, we append it.
-      // Exceptions: MSSQL varchar(MAX) might come in as type="varchar(MAX)" or type="varchar" len="MAX" depending on how user entered it. 
-      // Based on dbDataTypes.ts, "varchar(MAX)" is a type option.
       
       if (col.length && !type.includes('(')) {
         line += ` ${type}(${col.length})`;
@@ -153,11 +149,9 @@ export const generateSQL = (
         line += ` ${type}`;
       }
 
-      // Constraints
       if (!col.isNullable) line += ` NOT NULL`;
       if (col.isUnique) line += ` UNIQUE`;
       
-      // Identity
       if (col.isIdentity) {
         line += ` ${identity}`;
       }
@@ -167,7 +161,6 @@ export const generateSQL = (
       if (col.isPk) pkCols.push(col.name);
     });
 
-    // Primary Keys
     if (pkCols.length > 0) {
       if (isMysql) {
         lines.push(`  PRIMARY KEY (${pkCols.map(c => `${q}${c}${qe}`).join(', ')})`);
@@ -181,7 +174,6 @@ export const generateSQL = (
     sql += isMysql ? '\n' : 'GO\n\n';
   });
 
-  // Process Foreign Keys
   physRels.forEach((rel) => {
     const sourceTable = physTables.find(t => t.id === rel.fromTable);
     const targetTable = physTables.find(t => t.id === rel.toTable);

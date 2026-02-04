@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import type { ViewOptions, WarningData } from './ui/types';
+import type { ViewOptions, WarningData, Table, Relationship } from './ui/types';
 import { useSchemaData } from './ui/hooks/useSchemaData';
 import Toolbar from './ui/components/Toolbar';
 import Sidebar from './ui/components/Sidebar';
@@ -8,6 +8,7 @@ import PropertiesPanel from './ui/components/PropertiesPanel';
 import WarningModal from './ui/components/WarningModal';
 import DiagramCanvas from './ui/components/DiagramCanvas';
 import RelationshipMenu from './ui/components/RelationshipMenu';
+import ImportModal from './ui/components/ImportModal';
 import type { DbEngine } from './utils/dbDataTypes';
 import { generateSQL } from './utils/sqlGenerator';
 
@@ -49,6 +50,7 @@ const App = () => {
     showCardinality: true,
     showCardinalityNumeric: false,
     showRelationshipNames: false,
+    snapToGrid: true,
     gridStyle: 'none',
     lineStyle: 'orthogonal',
   });
@@ -60,6 +62,7 @@ const App = () => {
   const [globalEditable, setGlobalEditable] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(300);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // UI State
   const [zoom, setZoom] = useState<number>(1);
@@ -80,13 +83,52 @@ const App = () => {
     actions,
   } = useSchemaData(viewMode);
 
+  // --- Keyboard Shortcuts (Delete/Backspace & N for New Table) ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in an input or textarea
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      // Delete / Backspace
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (relMenu) {
+          e.preventDefault();
+          // Priority: If a relationship menu is active, delete that relationship
+          actions.deleteRel(relMenu.id);
+          setRelMenu(null);
+        } else if (selectedId) {
+          e.preventDefault();
+          // Otherwise, if a table is selected, delete the table
+          actions.deleteTable(selectedId);
+          setSelectedId(null);
+          setIsPropertiesPanelOpen(false);
+        }
+      }
+
+      // 'N' for New Table
+      if (e.key.toLowerCase() === 'n') {
+        const newId = actions.addTable(sidebarWidth, pan, zoom, selectedId);
+        setSelectedId(newId);
+        setIsPropertiesPanelOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedId, relMenu, actions, sidebarWidth, pan, zoom]);
+
   const handleConfigTable = (id: string) => {
     setSelectedId(id);
     setIsPropertiesPanelOpen(true);
   };
 
-  const handleExportSQL = () => {
-    const sql = generateSQL(tables, relationships, dbEngine);
+  const handleExportSQL = (includeLayout: boolean) => {
+    const sql = generateSQL(tables, relationships, dbEngine, includeLayout);
     const blob = new Blob([sql], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -98,21 +140,31 @@ const App = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleImportSQL = (importedTables: Table[], importedRels: Relationship[]) => {
+    setTables(importedTables);
+    setRelationships(importedRels);
+    setIsImportModalOpen(false);
+    // Reset View
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
   const selectedTable = viewTables.find((t) => t.id === selectedId);
 
   // Active Relationship for Menu
   const activeRel = useMemo(
-    () => (relMenu ? relationships.find((r) => r.id === relMenu.id) : null),
-    [relMenu, relationships],
+    () => (relMenu ? viewRelationships.find((r) => r.id === relMenu.id) : null),
+    [relMenu, viewRelationships],
   );
 
   // Determine Nullability of Target Column for Active Rel
   const targetColNullable = useMemo(() => {
     if (!activeRel) return false;
-    const tTable = tables.find(t => t.id === activeRel.toTable);
+    // Check viewTables because it might be a virtual table
+    const tTable = viewTables.find(t => t.id === activeRel.toTable);
     const tCol = tTable?.columns.find(c => c.id === activeRel.toCol);
     return tCol?.isNullable || false;
-  }, [activeRel, tables]);
+  }, [activeRel, viewTables]);
 
   return (
     <div
@@ -138,6 +190,15 @@ const App = () => {
           />
         )}
 
+        {isImportModalOpen && (
+          <ImportModal
+            isOpen={isImportModalOpen}
+            onClose={() => setIsImportModalOpen(false)}
+            onImport={handleImportSQL}
+            dbEngine={dbEngine}
+          />
+        )}
+
         <Toolbar
           viewMode={viewMode}
           setViewMode={setViewMode}
@@ -149,6 +210,7 @@ const App = () => {
           setTheme={setTheme}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           onExport={handleExportSQL}
+          onImportClick={() => setIsImportModalOpen(true)}
         />
 
         <div className="flex flex-1 overflow-hidden relative">
@@ -229,7 +291,7 @@ const App = () => {
             </button>
           </div>
 
-          {selectedId && !selectedId.startsWith('virt_') && (
+          {selectedId && (
             <div className="md:hidden fixed bottom-6 left-6 z-40">
               <button
                 onClick={() => {
