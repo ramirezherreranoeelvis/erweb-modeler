@@ -11,7 +11,7 @@ interface RelationshipMenuProps {
   onUpdateName: (name: string) => void;
   onUpdateCardinality: (type: Relationship['type'], isNullable: boolean) => void;
   onResetRouting: () => void;
-  onSetRouting: (source: 'left' | 'right', target: 'left' | 'right') => void;
+  onSetRouting: (source: 'left' | 'right' | 'top' | 'bottom', target: 'left' | 'right' | 'top' | 'bottom') => void;
   onDelete: () => void;
 }
 
@@ -153,7 +153,7 @@ const RelationshipMenu: React.FC<RelationshipMenuProps> = ({
            </select>
         </div>
 
-        <div className="pt-4 text-xs font-bold text-slate-400">OR</div>
+        <div className="pt-4 text-xs font-bold text-slate-400">TO</div>
 
         {/* Right / Target Selector */}
         <div className="flex-1 flex flex-col gap-1">

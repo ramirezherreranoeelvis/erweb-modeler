@@ -4,7 +4,7 @@ import type { Table, ViewOptions, TempConnection } from '../../types';
 import { TABLE_WIDTH } from '../../../utils/geometry';
 import TableHeader from './TableHeader';
 import TableBody from './TableBody';
-import { DbEngine } from '../../../utils/dbDataTypes';
+import type { DbEngine } from '../../../utils/dbDataTypes';
 
 interface TableNodeProps {
   table: Table;
@@ -22,7 +22,7 @@ interface TableNodeProps {
     e: React.PointerEvent,
     tableId: string,
     colId: string,
-    side: 'left' | 'right',
+    side: 'left' | 'right' | 'top' | 'bottom',
   ) => void;
   onCompleteConnection: (e: React.PointerEvent, tableId: string, colId: string) => void;
   onCompleteNewColConnection: (e: React.PointerEvent, tableId: string) => void;
@@ -57,13 +57,46 @@ const TableNode: React.FC<TableNodeProps> = ({
 }) => {
   const isLocked = globalEditable || table.isManuallyEditable;
 
+  // Handler for Table-Level Connection Points (Source)
+  // Logic: Automatically finds the PK to start the connection
+  const handleTableConnectionStart = (
+    e: React.PointerEvent,
+    side: 'left' | 'right' | 'top' | 'bottom',
+  ) => {
+    e.stopPropagation();
+    const pkCol = table.columns.find((c) => c.isPk);
+    if (pkCol) {
+      onStartConnection(e, table.id, pkCol.id, side);
+    }
+  };
+
+  // Handler for Table-Level Drop (Target)
+  const handleTableConnectionDrop = (e: React.PointerEvent) => {
+    // Only trigger if we are connecting AND the source is a different table
+    if (isConnecting && tempConnection && tempConnection.sourceTableId !== table.id) {
+      e.stopPropagation();
+      onCompleteNewColConnection(e, table.id);
+    }
+  };
+
+  // Fallback to 'table' mode if undefined to handle HMR or initial state edge cases
+  const currentMode = viewOptions.connectionMode || 'table';
+  const showTableConnectors = currentMode === 'table' && !table.id.startsWith('virt_');
+
+  // Style for the connector dots - Fixed visibility logic:
+  // Visible if Selected OR Hovering the Table (group-hover/table)
+  const pointConnectionClass = `absolute w-3 h-3 bg-blue-500 border-2 border-white dark:border-slate-800 rounded-full cursor-crosshair shadow-sm z-50 transition-all duration-200 hover:scale-125 ${
+    isSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-50 group-hover/table:opacity-100 group-hover/table:scale-100'
+  }`;
+
   return (
     <div
       onPointerDown={(e) => onPointerDown(e, table.id)}
+      onPointerUp={handleTableConnectionDrop}
       className={`absolute bg-white dark:bg-slate-800 border shadow-sm rounded-lg overflow-visible select-none transition-colors duration-200 group/table ${
         isSelected
-          ? 'border-blue-500 shadow-xl ring-2 ring-blue-100 dark:ring-blue-900 z-10'
-          : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 z-0'
+          ? 'border-blue-500 shadow-xl ring-2 ring-blue-100 dark:ring-blue-900 z-30'
+          : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 z-10'
       }`}
       style={{
         left: table.x,
@@ -98,6 +131,40 @@ const TableNode: React.FC<TableNodeProps> = ({
         onStartConnection={onStartConnection}
         onCompleteNewColConnection={onCompleteNewColConnection}
       />
+
+      {/* TABLE LEVEL CONNECTION POINTS (Only in Table Mode) */}
+      {/* Moved to bottom of JSX to ensuring stacking on top */}
+      {table.columns.length > 0 && showTableConnectors && (
+        <>
+          {/* Left - Centered on border (-left-1.5 = -6px for 12px dot) */}
+          <div
+            className={`${pointConnectionClass} -left-1.5 top-1/2 -translate-y-1/2`}
+            onPointerDown={(e) => handleTableConnectionStart(e, 'left')}
+            title="Connect (Source: PK)"
+          />
+
+          {/* Right - Centered on border (-right-1.5) */}
+          <div
+            className={`${pointConnectionClass} -right-1.5 top-1/2 -translate-y-1/2`}
+            onPointerDown={(e) => handleTableConnectionStart(e, 'right')}
+            title="Connect (Source: PK)"
+          />
+
+          {/* Top - Centered on border (-top-1.5) */}
+          <div
+            className={`${pointConnectionClass} left-1/2 -top-1.5 -translate-x-1/2`}
+            onPointerDown={(e) => handleTableConnectionStart(e, 'top')}
+            title="Connect (Source: PK)"
+          />
+
+          {/* Bottom - Centered on border (-bottom-1.5) */}
+          <div
+            className={`${pointConnectionClass} left-1/2 -bottom-1.5 -translate-x-1/2`}
+            onPointerDown={(e) => handleTableConnectionStart(e, 'bottom')}
+            title="Connect (Source: PK)"
+          />
+        </>
+      )}
 
       {/* Quick Add Column Button (Bottom Center) - Only Visible when Locked (Editable) */}
       {isLocked && (

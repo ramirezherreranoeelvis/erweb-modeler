@@ -12,7 +12,7 @@ export interface Relationship {
   isManuallyEditable?: boolean;
   x?: number;
   y?: number;
-  sourceSide?: 'left' | 'right';
-  targetSide?: 'left' | 'right';
+  sourceSide?: 'left' | 'right' | 'top' | 'bottom';
+  targetSide?: 'left' | 'right' | 'top' | 'bottom';
   controlPoints?: { x: number; y: number }[];
 }

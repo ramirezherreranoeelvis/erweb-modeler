@@ -1,14 +1,13 @@
+
 import type { Table, Relationship } from '../ui/types';
 import { TABLE_WIDTH } from './constants';
-import { getColumnRelativeY, isVerticalSegmentColliding } from './tableCalculations';
+import { getColumnRelativeY, isVerticalSegmentColliding, getTableHeight } from './tableCalculations';
+import { getSmartTableRoute } from './smartRouting';
 
 // --- Helper: Remove collinear points and handle overlapping backtracking ---
-// This cleans up the line. If point B is between A and C in a straight line, remove B.
-// Also handles "folding" where the line goes A -> B -> A (backtracking).
 function simplifyOrthogonalPoints(points: { x: number; y: number }[]) {
   if (points.length < 3) return points;
 
-  // 1. First pass: Remove very close points (duplicates)
   const uniquePoints = points.filter((p, i) => {
     if (i === 0) return true;
     const prev = points[i - 1];
@@ -24,17 +23,10 @@ function simplifyOrthogonalPoints(points: { x: number; y: number }[]) {
     const curr = uniquePoints[i];
     const next = uniquePoints[i + 1];
 
-    // Check collinearity (Horizontal or Vertical alignment)
     const isHorizontal = Math.abs(prev.y - curr.y) < 2 && Math.abs(curr.y - next.y) < 2;
     const isVertical = Math.abs(prev.x - curr.x) < 2 && Math.abs(curr.x - next.x) < 2;
 
-    // Check for backtracking (folding back on itself)
-    // e.g. x: 100 -> x: 200 -> x: 150. This creates a mess.
-    // We generally want to keep corners, but strictly collinear midpoints should go.
-
     if (isHorizontal || isVertical) {
-      // It's collinear, so 'curr' is redundant between 'prev' and 'next'
-      // Skip adding 'curr'
       continue;
     }
 
@@ -53,7 +45,6 @@ function getSplinePath(points: { x: number; y: number }[]) {
     return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
   }
 
-  // Catmull-Rom to Cubic Bezier conversion
   let d = `M ${points[0].x} ${points[0].y}`;
   const k = 1;
 
@@ -75,30 +66,74 @@ function getSplinePath(points: { x: number; y: number }[]) {
   return d;
 }
 
-// --- Polyline Helper (Straight segments) ---
 function getPolylinePath(points: { x: number; y: number }[]) {
   if (points.length < 2) return '';
   return points.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(' ');
 }
 
-export const getConnectorPoints = (r: Relationship, tables: Table[]) => {
+// Helper to calculate Table-to-Table connection points based on relative position
+const getTableBoundaryPoint = (table: Table, otherTable: Table, sideOverride?: 'left'|'right'|'top'|'bottom') => {
+    const tCenter = { x: table.x + TABLE_WIDTH/2, y: table.y + getTableHeight(table)/2 };
+    const oCenter = { x: otherTable.x + TABLE_WIDTH/2, y: otherTable.y + getTableHeight(otherTable)/2 };
+    
+    const dx = oCenter.x - tCenter.x;
+    const dy = oCenter.y - tCenter.y;
+    
+    // Determine strict direction if no override
+    let side = sideOverride;
+    
+    if (!side) {
+        if (Math.abs(dx) > Math.abs(dy)) {
+            side = dx > 0 ? 'right' : 'left';
+        } else {
+            side = dy > 0 ? 'bottom' : 'top';
+        }
+    }
+    
+    switch(side) {
+        case 'right': return { x: table.x + TABLE_WIDTH, y: tCenter.y, cx: table.x + TABLE_WIDTH + 40, cy: tCenter.y };
+        case 'left': return { x: table.x, y: tCenter.y, cx: table.x - 40, cy: tCenter.y };
+        case 'bottom': return { x: tCenter.x, y: table.y + getTableHeight(table), cx: tCenter.x, cy: table.y + getTableHeight(table) + 40 };
+        case 'top': return { x: tCenter.x, y: table.y, cx: tCenter.x, cy: table.y - 40 };
+        default: return { x: tCenter.x, y: tCenter.y, cx: tCenter.x, cy: tCenter.y };
+    }
+};
+
+export const getConnectorPoints = (r: Relationship, tables: Table[], connectionMode: 'column' | 'table' = 'column') => {
   const startTable = tables.find((t) => t.id === r.fromTable);
   const endTable = tables.find((t) => t.id === r.toTable);
 
   if (!startTable || !endTable) return null;
 
+  // --- TABLE MODE LOGIC ---
+  if (connectionMode === 'table') {
+      // Use the Smart Routing logic to determine optimal points directly
+      // However, this function signature expects {p1, p2, c1, c2} for standard Bezier/Rendering.
+      // We will perform a simplified boundary calc here for "Curved" lines in table mode, 
+      // but "Orthogonal" mode will bypass this via getRoutePoints and smartRouting.ts.
+      
+      const startPt = getTableBoundaryPoint(startTable, endTable, r.sourceSide as any);
+      const endPt = getTableBoundaryPoint(endTable, startTable, r.targetSide as any);
+      
+      return {
+          p1x: startPt.x, p1y: startPt.y,
+          p2x: endPt.x, p2y: endPt.y,
+          c1x: startPt.cx, c1y: startPt.cy,
+          c2x: endPt.cx, c2y: endPt.cy
+      };
+  }
+
+  // --- COLUMN MODE LOGIC (Original) ---
   const startYRel = getColumnRelativeY(startTable, r.fromCol);
   const endYRel = getColumnRelativeY(endTable, r.toCol);
 
   let startY = startTable.y + startYRel;
   let endY = endTable.y + endYRel;
 
-  // Snap Y if very close to avoid micro-steps
   if (Math.abs(startY - endY) < 5) {
     endY = startY;
   }
 
-  // Dynamic curvature based on vertical distance
   const distY = Math.abs(endY - startY);
   const curvature = Math.max(40, Math.min(100, distY * 0.2));
 
@@ -112,100 +147,63 @@ export const getConnectorPoints = (r: Relationship, tables: Table[]) => {
 
   let p1x, p1y, p2x, p2y, c1x, c1y, c2x, c2y;
 
-  // Standard Logic
   if (isStartLeftOfEnd) {
-    p1x = startRight;
-    p1y = startY;
-    p2x = endLeft;
-    p2y = endY;
-
-    c1x = p1x + curvature;
-    c1y = p1y;
-    c2x = p2x - curvature;
-    c2y = p2y;
+    p1x = startRight; p1y = startY;
+    p2x = endLeft; p2y = endY;
+    c1x = p1x + curvature; c1y = p1y;
+    c2x = p2x - curvature; c2y = p2y;
   } else if (isStartRightOfEnd) {
-    p1x = startLeft;
-    p1y = startY;
-    p2x = endRight;
-    p2y = endY;
-
-    c1x = p1x - curvature;
-    c1y = p1y;
-    c2x = p2x + curvature;
-    c2y = p2y;
+    p1x = startLeft; p1y = startY;
+    p2x = endRight; p2y = endY;
+    c1x = p1x - curvature; c1y = p1y;
+    c2x = p2x + curvature; c2y = p2y;
   } else {
-    // Overlap horizontal
     const leftDist = Math.abs(startLeft - endLeft);
     const rightDist = Math.abs(startRight - endRight);
 
     if (leftDist < rightDist) {
-      p1x = startLeft;
-      p1y = startY;
-      p2x = endLeft;
-      p2y = endY;
-
-      c1x = p1x - curvature;
-      c1y = p1y;
-      c2x = p2x - curvature;
-      c2y = p2y;
+      p1x = startLeft; p1y = startY;
+      p2x = endLeft; p2y = endY;
+      c1x = p1x - curvature; c1y = p1y;
+      c2x = p2x - curvature; c2y = p2y;
     } else {
-      p1x = startRight;
-      p1y = startY;
-      p2x = endRight;
-      p2y = endY;
-
-      c1x = p1x + curvature;
-      c1y = p1y;
-      c2x = p2x + curvature;
-      c2y = p2y;
+      p1x = startRight; p1y = startY;
+      p2x = endRight; p2y = endY;
+      c1x = p1x + curvature; c1y = p1y;
+      c2x = p2x + curvature; c2y = p2y;
     }
   }
 
-  // Self Reference Override
   if (r.fromTable === r.toTable) {
-    p1x = startRight;
-    p1y = startY;
-    p2x = endRight;
-    p2y = endY;
-    c1x = p1x + 60;
-    c1y = p1y;
-    c2x = p2x + 60;
-    c2y = p2y;
+    p1x = startRight; p1y = startY;
+    p2x = endRight; p2y = endY;
+    c1x = p1x + 60; c1y = p1y;
+    c2x = p2x + 60; c2y = p2y;
   }
 
-  // --- MANUAL OVERRIDES ---
-  if (r.sourceSide === 'left') {
-    p1x = startLeft;
-    c1x = p1x - curvature;
-  } else if (r.sourceSide === 'right') {
-    p1x = startRight;
-    c1x = p1x + curvature;
-  }
+  // Only apply strict side overrides if they are specifically 'left' or 'right' in Column mode
+  if (r.sourceSide === 'left') { p1x = startLeft; c1x = p1x - curvature; }
+  else if (r.sourceSide === 'right') { p1x = startRight; c1x = p1x + curvature; }
 
-  if (r.targetSide === 'left') {
-    p2x = endLeft;
-    c2x = p2x - curvature;
-  } else if (r.targetSide === 'right') {
-    p2x = endRight;
-    c2x = p2x + curvature;
-  }
+  if (r.targetSide === 'left') { p2x = endLeft; c2x = p2x - curvature; }
+  else if (r.targetSide === 'right') { p2x = endRight; c2x = p2x + curvature; }
 
   return { p1x, p1y, p2x, p2y, c1x, c1y, c2x, c2y };
 };
 
-// Return array of vertices that make up the path
 export const getRoutePoints = (
   r: Relationship,
   tables: Table[],
   style: 'curved' | 'orthogonal' = 'curved',
+  connectionMode: 'column' | 'table' = 'column'
 ): { x: number; y: number }[] => {
-  const pts = getConnectorPoints(r, tables);
-  if (!pts) return [];
-  const { p1x, p1y, p2x, p2y } = pts;
-
-  // Case 1: Manual Control Points
+  // --- MANUAL CONTROL POINTS ---
+  // If user has manually modified the path, respect it absolutely.
   if (r.controlPoints && r.controlPoints.length > 0) {
-    // If Orthogonal style, inject phantom corners to keep lines straight
+     const pts = getConnectorPoints(r, tables, connectionMode);
+     if (!pts) return [];
+     const { p1x, p1y, p2x, p2y } = pts;
+
     if (style === 'orthogonal') {
       const rawPoints = [{ x: p1x, y: p1y }, ...r.controlPoints, { x: p2x, y: p2y }];
       const orthoPoints: { x: number; y: number }[] = [];
@@ -215,24 +213,31 @@ export const getRoutePoints = (
         const next = rawPoints[i + 1];
 
         orthoPoints.push(curr);
-
-        // If not aligned horizontally or vertically, add a corner
         if (Math.abs(curr.x - next.x) > 2 && Math.abs(curr.y - next.y) > 2) {
-          // Inject corner. Default to Horizontal then Vertical (H-V)
-          // We use the X of the next point and Y of current
           orthoPoints.push({ x: next.x, y: curr.y });
         }
       }
       orthoPoints.push(rawPoints[rawPoints.length - 1]);
-
-      // SIMPLIFY: Remove redundant collinear points
       return simplifyOrthogonalPoints(orthoPoints);
     }
-
     return [{ x: p1x, y: p1y }, ...r.controlPoints, { x: p2x, y: p2y }];
   }
 
-  // Case 2: Orthogonal (Quadratic) Automatic Routing
+  // --- SMART TABLE ROUTING (NEW) ---
+  // If in Table Mode and Orthogonal style, use the new smart logic
+  if (connectionMode === 'table' && style === 'orthogonal') {
+      const startTable = tables.find((t) => t.id === r.fromTable);
+      const endTable = tables.find((t) => t.id === r.toTable);
+      if (startTable && endTable) {
+         return getSmartTableRoute(startTable, endTable, r);
+      }
+  }
+
+  // --- DEFAULT ROUTING (Column Mode or Curved) ---
+  const pts = getConnectorPoints(r, tables, connectionMode);
+  if (!pts) return [];
+  const { p1x, p1y, p2x, p2y } = pts;
+
   if (style === 'orthogonal') {
     const { c1x, c2x } = pts;
     const dir1 = c1x > p1x ? 1 : -1;
@@ -242,12 +247,8 @@ export const getRoutePoints = (
     if (isCShape) {
       const buffer = 30;
       let railX;
-      if (dir1 === 1) {
-        railX = Math.max(p1x, p2x) + buffer;
-      } else {
-        railX = Math.min(p1x, p2x) - buffer;
-      }
-      // C-Shape Points
+      if (dir1 === 1) railX = Math.max(p1x, p2x) + buffer;
+      else railX = Math.min(p1x, p2x) - buffer;
       return [
         { x: p1x, y: p1y },
         { x: railX, y: p1y },
@@ -256,6 +257,23 @@ export const getRoutePoints = (
       ];
     } else {
       const midX = (p1x + p2x) / 2;
+      const midY = (p1y + p2y) / 2;
+      
+      const dx = Math.abs(p1x - p2x);
+      const dy = Math.abs(p1y - p2y);
+      
+      // Basic Z-Shape Logic
+      // If predominantly vertical stacking (often happens in table mode if fallback used), do a Z-shape via Y
+      if (connectionMode === 'table' && dy > dx + 50) {
+           return [
+              { x: p1x, y: p1y },
+              { x: p1x, y: midY },
+              { x: p2x, y: midY },
+              { x: p2x, y: p2y }
+           ];
+      }
+
+      // Default horizontal S-Shape logic
       const startTable = tables.find((t) => t.id === r.fromTable);
       const endTable = tables.find((t) => t.id === r.toTable);
 
@@ -268,9 +286,6 @@ export const getRoutePoints = (
         const buffer = 30;
         const railX1 = p1x + dir1 * buffer;
         const railX2 = p2x + dir2 * buffer;
-
-        // Z-Shape around collision
-        const midY = (p1y + p2y) / 2;
         return [
           { x: p1x, y: p1y },
           { x: railX1, y: p1y },
@@ -280,7 +295,6 @@ export const getRoutePoints = (
           { x: p2x, y: p2y },
         ];
       }
-      // Simple S-Shape
       return [
         { x: p1x, y: p1y },
         { x: midX, y: p1y },
@@ -290,7 +304,6 @@ export const getRoutePoints = (
     }
   }
 
-  // Case 3: Curved Automatic (Bezier)
   return [
     { x: p1x, y: p1y },
     { x: p2x, y: p2y },
@@ -301,13 +314,14 @@ export const calculatePath = (
   r: Relationship,
   tables: Table[],
   style: 'curved' | 'orthogonal' = 'curved',
+  connectionMode: 'column' | 'table' = 'column'
 ): string => {
-  const pts = getConnectorPoints(r, tables);
+  const pts = getConnectorPoints(r, tables, connectionMode);
   if (!pts) return '';
 
-  // For Orthogonal (Automatic or Manual) and Manual Curved, use the route points
+  // Always use route points for orthogonal to ensure smart routing is applied
   if (style === 'orthogonal' || (r.controlPoints && r.controlPoints.length > 0)) {
-    const points = getRoutePoints(r, tables, style);
+    const points = getRoutePoints(r, tables, style, connectionMode);
     if (style === 'orthogonal') {
       return getPolylinePath(points);
     } else {
@@ -315,7 +329,6 @@ export const calculatePath = (
     }
   }
 
-  // Fallback for Automatic Curved (Original Bezier Logic)
   const { p1x, p1y, p2x, p2y, c1x, c1y, c2x, c2y } = pts;
   return `M ${p1x} ${p1y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2x} ${p2y}`;
 };
@@ -324,10 +337,10 @@ export const getCurveMidpoint = (
   r: Relationship,
   tables: Table[],
   style: 'curved' | 'orthogonal' = 'curved',
+  connectionMode: 'column' | 'table' = 'column'
 ) => {
-  const points = getRoutePoints(r, tables, style);
+  const points = getRoutePoints(r, tables, style, connectionMode);
 
-  // For orthogonal or manual
   if (points.length > 2) {
     if (points.length % 2 !== 0) {
       return points[Math.floor(points.length / 2)];
@@ -339,8 +352,7 @@ export const getCurveMidpoint = (
     }
   }
 
-  // Fallback for default bezier
-  const pts = getConnectorPoints(r, tables);
+  const pts = getConnectorPoints(r, tables, connectionMode);
   if (!pts) return { x: 0, y: 0 };
   const { p1x, p1y, p2x, p2y, c1x, c1y, c2x, c2y } = pts;
 

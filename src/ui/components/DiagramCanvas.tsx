@@ -17,8 +17,9 @@ import {
   TABLE_WIDTH,
   generateId,
   getColumnRelativeY,
+  getTableHeight,
 } from '../../utils/geometry';
-import TableNode from './table-nodes';
+import TableNode from './table-nodes/TableNode';
 import { CardinalityMarkers } from './CardinalityMarkers';
 import type { DbEngine } from '../../utils/dbDataTypes';
 
@@ -198,7 +199,12 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
     const rel = viewRelationships.find((r) => r.id === relId);
     if (!rel) return [];
 
-    const visualPoints = getRoutePoints(rel, viewTables, viewOptions.lineStyle);
+    const visualPoints = getRoutePoints(
+      rel,
+      viewTables,
+      viewOptions.lineStyle,
+      viewOptions.connectionMode,
+    );
 
     const uniquePoints = visualPoints.filter((p, i) => {
       if (i === 0) return true;
@@ -314,7 +320,12 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
     const clickX = (e.clientX - canvasRect.left - pan.x) / zoom;
     const clickY = (e.clientY - canvasRect.top - pan.y) / zoom;
 
-    const allPoints = getRoutePoints(rel, viewTables, viewOptions.lineStyle);
+    const allPoints = getRoutePoints(
+      rel,
+      viewTables,
+      viewOptions.lineStyle,
+      viewOptions.connectionMode,
+    );
 
     // Prevent adding point if too close to existing (Increased radius to 20px)
     const isOverExisting = allPoints.some((p) => Math.hypot(p.x - clickX, p.y - clickY) < 20);
@@ -373,7 +384,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
     e: React.PointerEvent,
     tableId: string,
     colId: string,
-    side: 'left' | 'right',
+    side: 'left' | 'right' | 'top' | 'bottom',
   ) => {
     e.stopPropagation();
     setRelMenu(null);
@@ -383,22 +394,46 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
     if (!table) return;
     if (tableId.startsWith('virt_')) return;
 
-    const relativeY = getColumnRelativeY(table, colId);
+    // Determine Y start position based on mode
+    let startY = 0;
+    let startX = 0;
+
+    if (viewOptions.connectionMode === 'table') {
+      // Approximate start based on side
+      const rect = { x: table.x, y: table.y, w: TABLE_WIDTH, h: table.columns.length * 28 + 40 }; // approx height
+      if (side === 'left') {
+        startX = rect.x;
+        startY = rect.y + rect.h / 2;
+      } else if (side === 'right') {
+        startX = rect.x + rect.w;
+        startY = rect.y + rect.h / 2;
+      } else if (side === 'top') {
+        startX = rect.x + rect.w / 2;
+        startY = rect.y;
+      } else if (side === 'bottom') {
+        startX = rect.x + rect.w / 2;
+        startY = rect.y + rect.h;
+      }
+    } else {
+      const relativeY = getColumnRelativeY(table, colId);
+      startX = table.x + (side === 'right' ? TABLE_WIDTH : 0);
+      startY = table.y + relativeY;
+    }
 
     setIsConnecting(true);
     setTempConnection({
       sourceTableId: tableId,
       sourceColId: colId,
-      startX: table.x + (side === 'right' ? TABLE_WIDTH : 0),
-      startY: table.y + relativeY,
-      side,
+      startX: startX,
+      startY: startY,
+      side: side,
     });
   };
 
   const completeConnection = (
     e: React.PointerEvent,
     targetTableId: string,
-    targetColId: string,
+    targetColId: string, // This might be a placeholder in Table Mode if dropped on table directly
   ) => {
     if (isConnecting && tempConnection) {
       e.stopPropagation();
@@ -406,7 +441,8 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
       const sourceTId = tempConnection.sourceTableId;
       const sourceCId = tempConnection.sourceColId;
 
-      if (sourceTId === targetTableId && sourceCId === targetColId) {
+      // 1. Basic Validations
+      if (sourceTId === targetTableId) { // Prevent self-connection for simplicity in this logic
         setIsConnecting(false);
         setTempConnection(null);
         return;
@@ -417,6 +453,63 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
         setTempConnection(null);
         return;
       }
+
+      const sourceTable = tables.find((t) => t.id === sourceTId);
+      const sourceCol = sourceTable?.columns.find((c) => c.id === sourceCId);
+      const targetTable = tables.find((t) => t.id === targetTableId);
+
+      if (!sourceCol || !targetTable) return;
+
+      // --- TABLE MODE CONNECTION LOGIC ---
+      if (viewOptions.connectionMode === 'table') {
+         // In Table Mode, we check for Name Collisions with Source PK
+         // We ignore `targetColId` because we dropped on the table (or a row treated as table)
+         
+         // 1. Check if relationship already exists between these tables
+         const existingRel = relationships.find(r => 
+            (r.fromTable === sourceTId && r.toTable === targetTableId) ||
+            (r.fromTable === targetTableId && r.toTable === sourceTId)
+         );
+         
+         if (existingRel) {
+             setIsConnecting(false);
+             setTempConnection(null);
+             return;
+         }
+
+         // 2. Check for Name Collision
+         const existingTargetCol = targetTable.columns.find(c => c.name.toLowerCase() === sourceCol.name.toLowerCase());
+
+         if (existingTargetCol) {
+             // COLLISION DETECTED: Prompt user
+             setWarningModal({
+                 isOpen: true,
+                 type: 'collision',
+                 data: {
+                     sourceTId,
+                     sourceCId,
+                     targetTId: targetTableId,
+                     targetCId: existingTargetCol.id,
+                     sourceCol,
+                     targetCol: existingTargetCol
+                 }
+             });
+         } else {
+             // NO COLLISION: Auto-create new column (Standard behavior)
+             completeConnectionToNewColumn(e, targetTableId);
+             // completeConnectionToNewColumn handles cleanup
+             return;
+         }
+         
+         setIsConnecting(false);
+         setTempConnection(null);
+         return;
+      }
+
+      // --- COLUMN MODE CONNECTION LOGIC ---
+      // We are connecting to a SPECIFIC target column `targetColId`
+      const targetCol = targetTable.columns.find((c) => c.id === targetColId);
+      if (!targetCol) return;
 
       const exists = relationships.find(
         (r) =>
@@ -436,13 +529,6 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
         return;
       }
 
-      const sourceTable = tables.find((t) => t.id === sourceTId);
-      const sourceCol = sourceTable?.columns.find((c) => c.id === sourceCId);
-      const targetTable = tables.find((t) => t.id === targetTableId);
-      const targetCol = targetTable?.columns.find((c) => c.id === targetColId);
-
-      if (!sourceCol || !targetTable || !targetCol) return;
-
       if (targetCol.isFk) {
         setIsConnecting(false);
         setTempConnection(null);
@@ -461,7 +547,8 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
       if (hasMismatch) {
         setWarningModal({
           isOpen: true,
-          pendingData: {
+          type: 'integrity',
+          data: {
             sourceTId,
             sourceCId,
             targetTId: targetTableId,
@@ -480,6 +567,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
   };
 
   const completeConnectionToNewColumn = (e: React.PointerEvent, targetTableId: string) => {
+    // This function creates a NEW column on the target table and links it
     if (isConnecting && tempConnection) {
       e.stopPropagation();
 
@@ -495,6 +583,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
 
       if (!sourceCol || !targetTable) return;
 
+      // Auto-increment name if collision exists (e.g. user_id -> user_id2)
       let newName = sourceCol.name;
       let newLogicalName = sourceCol.logicalName;
       let counter = 2;
@@ -621,8 +710,8 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
 
         // Apply Snap to Grid
         if (viewOptions.snapToGrid) {
-            newX = Math.round(newX / 20) * 20;
-            newY = Math.round(newY / 20) * 20;
+          newX = Math.round(newX / 20) * 20;
+          newY = Math.round(newY / 20) * 20;
         }
 
         setRelationships((prev) =>
@@ -638,11 +727,11 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
       if (targetTable) {
         let newTx = x - dragInfo.offset.x;
         let newTy = y - dragInfo.offset.y;
-        
+
         // Apply Snap to Grid
         if (viewOptions.snapToGrid) {
-            newTx = Math.round(newTx / 20) * 20;
-            newTy = Math.round(newTy / 20) * 20;
+          newTx = Math.round(newTx / 20) * 20;
+          newTy = Math.round(newTy / 20) * 20;
         }
 
         const dx = newTx - targetTable.x;
@@ -668,7 +757,12 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
                 // If the segment from Table to CP[0] is predominantly vertical, shift CP[0].x by dx
                 // If horizontal, shift CP[0].y by dy
 
-                const prevPt = getRoutePoints(r, tables, 'orthogonal')[0]; // Start point (anchor)
+                const prevPt = getRoutePoints(
+                  r,
+                  tables,
+                  'orthogonal',
+                  viewOptions.connectionMode,
+                )[0]; // Start point (anchor)
                 const isSegVertical =
                   Math.abs(prevPt.x - firstCP.x) < Math.abs(prevPt.y - firstCP.y);
 
@@ -685,7 +779,12 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
               if (r.toTable === tableId) {
                 const lastIdx = newCPs.length - 1;
                 const lastCP = newCPs[lastIdx];
-                const routePts = getRoutePoints(r, tables, 'orthogonal');
+                const routePts = getRoutePoints(
+                  r,
+                  tables,
+                  'orthogonal',
+                  viewOptions.connectionMode,
+                );
                 const endAnchor = routePts[routePts.length - 1]; // End anchor
 
                 const isSegVertical =
@@ -783,9 +882,9 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
               // Check if Identifying or Non-Identifying
               const targetTable = viewTables.find((t) => t.id === rel.toTable);
               const targetCol = targetTable?.columns.find((c) => c.id === rel.toCol);
-              
+
               const isOptional = targetCol?.isNullable;
-              
+
               // Identifying: FK is PK (Solid). Non-Identifying: FK is NOT PK (Dashed).
               const isIdentifying = targetCol?.isPk;
               const dashArray = isIdentifying ? 'none' : '4,4';
@@ -828,14 +927,54 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
               }
 
               // Calculate position for text labels
-              const pts = getConnectorPoints(rel, viewTables);
-              const midpoint = getCurveMidpoint(rel, viewTables, viewOptions.lineStyle);
+              const pts = getConnectorPoints(rel, viewTables, viewOptions.connectionMode);
+              const midpoint = getCurveMidpoint(
+                rel,
+                viewTables,
+                viewOptions.lineStyle,
+                viewOptions.connectionMode,
+              );
 
-              const routePoints = getRoutePoints(rel, viewTables, viewOptions.lineStyle);
+              const routePoints = getRoutePoints(
+                rel,
+                viewTables,
+                viewOptions.lineStyle,
+                viewOptions.connectionMode,
+              );
 
               const charWidth = 6;
               const padding = 16;
               const labelWidth = (rel.name ? rel.name.length * charWidth : 40) + padding;
+
+              const getLabelProps = (x: number, y: number, table?: Table) => {
+                  if (!table) return { x, y: y - 5, anchor: 'middle' };
+                  
+                  const h = getTableHeight(table);
+                  const isTop = Math.abs(y - table.y) <= 5;
+                  const isBottom = Math.abs(y - (table.y + h)) <= 5;
+                  const isLeft = Math.abs(x - table.x) <= 5;
+                  const isRight = Math.abs(x - (table.x + TABLE_WIDTH)) <= 5;
+
+                  // Increased separation for vertical labels to fix overlap
+                  if (isTop) return { x: x + 6, y: y - 12, anchor: 'start' }; 
+                  if (isBottom) return { x: x + 6, y: y + 20, anchor: 'start' }; 
+                  if (isLeft) return { x: x - 8, y: y - 6, anchor: 'end' }; 
+                  if (isRight) return { x: x + 8, y: y - 6, anchor: 'start' };
+                  
+                  // Fallback
+                  const centerX = table.x + TABLE_WIDTH / 2;
+                  return { 
+                      x: x + (x > centerX ? 10 : -10),
+                      y: y - 5, 
+                      anchor: x > centerX ? 'start' : 'end'
+                  };
+              };
+              
+              const startTable = viewTables.find(t => t.id === rel.fromTable);
+              const endTable = viewTables.find(t => t.id === rel.toTable);
+              
+              const startLabelProps = pts ? getLabelProps(pts.p1x, pts.p1y, startTable) : { x: 0, y: 0, anchor: 'middle' };
+              const endLabelProps = pts ? getLabelProps(pts.p2x, pts.p2y, endTable) : { x: 0, y: 0, anchor: 'middle' };
 
               return (
                 <g
@@ -849,14 +988,24 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
                 >
                   {/* Hit area */}
                   <path
-                    d={calculatePath(rel, viewTables, viewOptions.lineStyle)}
+                    d={calculatePath(
+                      rel,
+                      viewTables,
+                      viewOptions.lineStyle,
+                      viewOptions.connectionMode,
+                    )}
                     stroke="transparent"
                     strokeWidth="20"
                     fill="none"
                   />
                   {/* Visible line */}
                   <path
-                    d={calculatePath(rel, viewTables, viewOptions.lineStyle)}
+                    d={calculatePath(
+                      rel,
+                      viewTables,
+                      viewOptions.lineStyle,
+                      viewOptions.connectionMode,
+                    )}
                     stroke={isSelected ? '#2563eb' : strokeColor}
                     strokeWidth={isSelected ? '2.5' : '1.5'}
                     fill="none"
@@ -976,40 +1125,18 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
                   {viewOptions.showCardinalityNumeric && pts && (
                     <>
                       <text
-                        x={
-                          pts.p1x +
-                          (pts.p1x >
-                          viewTables.find((t) => t.id === rel.fromTable)?.x! + TABLE_WIDTH / 2
-                            ? 10
-                            : -10)
-                        }
-                        y={pts.p1y - 5}
-                        textAnchor={
-                          pts.p1x >
-                          viewTables.find((t) => t.id === rel.fromTable)?.x! + TABLE_WIDTH / 2
-                            ? 'start'
-                            : 'end'
-                        }
-                        className="text-[10px] font-bold fill-slate-500 dark:fill-slate-400"
+                        x={startLabelProps.x}
+                        y={startLabelProps.y}
+                        textAnchor={startLabelProps.anchor as any}
+                        className="text-[10px] font-bold fill-slate-500 dark:fill-slate-400 pointer-events-none select-none"
                       >
                         {startLabel}
                       </text>
                       <text
-                        x={
-                          pts.p2x +
-                          (pts.p2x >
-                          viewTables.find((t) => t.id === rel.toTable)?.x! + TABLE_WIDTH / 2
-                            ? 10
-                            : -10)
-                        }
-                        y={pts.p2y - 5}
-                        textAnchor={
-                          pts.p2x >
-                          viewTables.find((t) => t.id === rel.toTable)?.x! + TABLE_WIDTH / 2
-                            ? 'start'
-                            : 'end'
-                        }
-                        className="text-[10px] font-bold fill-slate-500 dark:fill-slate-400"
+                        x={endLabelProps.x}
+                        y={endLabelProps.y}
+                        textAnchor={endLabelProps.anchor as any}
+                        className="text-[10px] font-bold fill-slate-500 dark:fill-slate-400 pointer-events-none select-none"
                       >
                         {endLabel}
                       </text>

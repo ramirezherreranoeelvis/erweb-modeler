@@ -1,3 +1,4 @@
+
 import { useState, useMemo, useEffect } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import type { ViewOptions, WarningData, Table, Relationship } from './ui/types';
@@ -53,6 +54,7 @@ const App = () => {
     snapToGrid: true,
     gridStyle: 'none',
     lineStyle: 'orthogonal',
+    connectionMode: 'table', // Default to table mode as requested
   });
 
   const [viewMode, setViewMode] = useState<string>('physical');
@@ -178,14 +180,128 @@ const App = () => {
           <WarningModal
             data={warningModal}
             onCancel={() => setWarningModal(null)}
-            onConfirm={() => {
-              actions.applyConnection(
-                warningModal.pendingData.sourceTId,
-                warningModal.pendingData.sourceCId,
-                warningModal.pendingData.targetTId,
-                warningModal.pendingData.targetCId,
-              );
-              setWarningModal(null);
+            onConfirmIntegrity={() => {
+              if (warningModal.type === 'integrity' && warningModal.data.targetCId) {
+                  actions.applyConnection(
+                    warningModal.data.sourceTId,
+                    warningModal.data.sourceCId,
+                    warningModal.data.targetTId,
+                    warningModal.data.targetCId,
+                  );
+                  setWarningModal(null);
+              }
+            }}
+            onResolveCollision={(action) => {
+               if (warningModal.type === 'collision') {
+                   // This logic is specifically for Table Mode collisions
+                   if (action === 'create_new') {
+                       // Pass a dummy targetCId which triggers "create new" logic in app (or we call a specific method)
+                       // Actually, DiagramCanvas has logic to create new if no column matches.
+                       // We need to simulate the "create new column" logic.
+                       // We can use actions.applyConnection to specific column OR actions.addColumn + actions.applyConnection?
+                       // Simpler: The DiagramCanvas logic for "Complete Connection to New Column" 
+                       // essentially calls actions.applyConnection but generates the col first.
+                       // Let's implement a specific handler here or call DiagramCanvas logic?
+                       // No, `actions` has all we need.
+                       // We can replicate logic:
+                       const sourceTable = tables.find(t => t.id === warningModal.data.sourceTId);
+                       const sourceCol = sourceTable?.columns.find(c => c.id === warningModal.data.sourceCId);
+                       const targetTable = tables.find(t => t.id === warningModal.data.targetTId);
+
+                       if (sourceTable && sourceCol && targetTable) {
+                           // Generate new name
+                           let newName = sourceCol.name;
+                           let newLogicalName = sourceCol.logicalName;
+                           let counter = 2;
+                           while (targetTable.columns.some((c) => c.name.toLowerCase() === newName.toLowerCase())) {
+                               newName = `${sourceCol.name}${counter}`;
+                               newLogicalName = `${sourceCol.logicalName} ${counter}`;
+                               counter++;
+                           }
+                           
+                           // Add Column first
+                           // Problem: actions.addColumn adds a generic column. We need to add specific column.
+                           // Let's manually manipulate state or enhance useSchemaData?
+                           // Actually, simpler: call `actions.applyConnection` but trick it? No.
+                           // Let's manually trigger the creation using setTables/setRelationships via DiagramCanvas logic...
+                           // OR - better - create a dedicated action in useSchemaData for "AddFKColumnAndLink"
+                           // Since we don't have that yet, let's just trigger applyConnection to a NEW ID if we could...
+                           // BUT wait, applyConnection expects targetCId to exist.
+                           
+                           // RE-USE existing logic: Just close modal and call the `onCompleteNewColConnection` equivalent?
+                           // We can't access DiagramCanvas internal methods here.
+                           // Let's use the DiagramCanvas logic: we'll call applyConnection with a NON-EXISTENT targetCId? 
+                           // No, applyConnection fails if col doesn't exist.
+                           
+                           // FIX: We will just call actions.applyConnection to the TARGET table but with a "magic" flag? No.
+                           // Let's just create the column manually here using setTables exposed via actions (it is not exposed).
+                           // Ok, let's use `actions.addColumn` then `actions.updateColumn` then `actions.applyConnection`.
+                           
+                           // 1. Add Column (generic)
+                           // We can't easily get the ID of the new column synchronously.
+                           
+                           // BACKTRACK: DiagramCanvas has logic `completeConnectionToNewColumn`.
+                           // We should move that logic to `useSchemaData` as `actions.createFkConnection`?
+                           // For now, let's use the `onApplyConnection` prop in DiagramCanvas which IS `actions.applyConnection`.
+                           // That function ADDS the FK property to existing column.
+                           
+                           // Let's implement `createFkConnection` in useSchemaData in next step if needed?
+                           // Actually, let's look at `actions.applyConnection` implementation in `useSchemaData.ts`.
+                           // It sets `isFk: true`. It does NOT create columns.
+                           
+                           // Solution: We will pass a callback from DiagramCanvas to App that handles "force create new".
+                           // But App renders WarningModal.
+                           
+                           // Let's implement the logic right here in App.tsx using setTables/setRelationships directly?
+                           // We have them!
+                           
+                           const newColId = Math.random().toString(36).substr(2, 9);
+                           setTables(prev => prev.map(t => {
+                               if (t.id === warningModal.data.targetTId) {
+                                   return {
+                                       ...t,
+                                       columns: [...t.columns, {
+                                           id: newColId,
+                                           name: newName,
+                                           logicalName: newLogicalName,
+                                           type: sourceCol.type,
+                                           length: sourceCol.length,
+                                           isPk: false,
+                                           isFk: true,
+                                           isNullable: sourceCol.isNullable,
+                                           isUnique: false,
+                                           isIdentity: false
+                                       }]
+                                   }
+                               }
+                               return t;
+                           }));
+                           
+                           const relId = Math.random().toString(36).substr(2, 9);
+                           const relName = `fk_${sourceTable.name}_${sourceCol.name}_${targetTable.name}_${newName}`.toLowerCase();
+                           
+                           setRelationships(prev => [...prev, {
+                               id: relId,
+                               name: relName,
+                               fromTable: warningModal.data.sourceTId,
+                               fromCol: warningModal.data.sourceCId,
+                               toTable: warningModal.data.targetTId,
+                               toCol: newColId,
+                               type: '1:N'
+                           }]);
+                       }
+                   } 
+                   else if (action === 'use_existing' && warningModal.data.targetCId) {
+                       // Just link to existing. applyConnection handles updating type/isFk
+                       actions.applyConnection(
+                           warningModal.data.sourceTId,
+                           warningModal.data.sourceCId,
+                           warningModal.data.targetTId,
+                           warningModal.data.targetCId
+                       );
+                   }
+                   setWarningModal(null);
+               }
             }}
           />
         )}

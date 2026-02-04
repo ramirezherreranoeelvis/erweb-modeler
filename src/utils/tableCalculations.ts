@@ -1,3 +1,4 @@
+
 import type { Table } from '../ui/types';
 import { HEADER_HEIGHT, ROW_HEIGHT, TABLE_WIDTH } from './constants';
 
@@ -8,7 +9,9 @@ export const getColumnRelativeY = (table: Table, colId: string): number => {
 };
 
 export const getTableHeight = (table: Table): number => {
-  return HEADER_HEIGHT + (table.columns.length * ROW_HEIGHT);
+  // Add 4px buffer to account for 'pb-1' (padding-bottom: 4px) in TableBody.tsx
+  // This ensures the connection point at the bottom is not covered by the table container.
+  return HEADER_HEIGHT + (table.columns.length * ROW_HEIGHT) + 4;
 };
 
 // Helper to check if a vertical line segment intersects a table

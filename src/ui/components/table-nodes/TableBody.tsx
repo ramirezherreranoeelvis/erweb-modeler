@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CopyPlus } from 'lucide-react';
 import type { Table, ViewOptions, TempConnection } from '../../types';
 import TableRow from './TableRow';
-import { DbEngine } from '../../../utils/dbDataTypes';
+import type { DbEngine } from '../../../utils/dbDataTypes';
 
 interface TableBodyProps {
   table: Table;
@@ -85,6 +85,9 @@ const TableBody: React.FC<TableBodyProps> = ({
     setDraggedIndex(null);
   };
 
+  // Check if we are in Column Mode for displaying the drop zone
+  const showNewColDropZone = viewOptions.connectionMode === 'column';
+
   return (
     <div className="flex flex-col bg-white dark:bg-slate-800 rounded-b-lg pb-1 relative">
       {table.columns.map((col, index) => (
@@ -119,19 +122,22 @@ const TableBody: React.FC<TableBodyProps> = ({
         />
       ))}
 
-      {/* DROP ZONE FOR NEW COLUMN */}
-      {isConnecting && tempConnection && tempConnection.sourceTableId !== table.id && (
-        <div
-          className="flex items-center justify-center h-[28px] mx-1 mb-1 mt-1 bg-green-50 dark:bg-green-900/20 border border-dashed border-green-300 dark:border-green-700 rounded hover:bg-green-100 dark:hover:bg-green-900/40 cursor-copy transition-colors animate-pulse"
-          onPointerUp={(e) => onCompleteNewColConnection(e, table.id)}
-          title="Drop to create new FK column automatically"
-        >
-          <CopyPlus size={14} className="text-green-600 dark:text-green-400 mr-1.5" />
-          <span className="text-[10px] font-bold text-green-700 dark:text-green-300 uppercase tracking-tight">
-            New FK Column
-          </span>
-        </div>
-      )}
+      {/* DROP ZONE FOR NEW COLUMN (Only visible in Column Mode) */}
+      {isConnecting &&
+        tempConnection &&
+        tempConnection.sourceTableId !== table.id &&
+        showNewColDropZone && (
+          <div
+            className="flex items-center justify-center h-[28px] mx-1 mb-1 mt-1 bg-green-50 dark:bg-green-900/20 border border-dashed border-green-300 dark:border-green-700 rounded hover:bg-green-100 dark:hover:bg-green-900/40 cursor-copy transition-colors animate-pulse"
+            onPointerUp={(e) => onCompleteNewColConnection(e, table.id)}
+            title="Drop to create new FK column automatically"
+          >
+            <CopyPlus size={14} className="text-green-600 dark:text-green-400 mr-1.5" />
+            <span className="text-[10px] font-bold text-green-700 dark:text-green-300 uppercase tracking-tight">
+              New FK Column
+            </span>
+          </div>
+        )}
     </div>
   );
 };

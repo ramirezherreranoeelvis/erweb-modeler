@@ -97,17 +97,7 @@ const INITIAL_TABLES: Table[] = [
   },
 ];
 
-const INITIAL_RELS: Relationship[] = [
-  {
-    id: 'r1',
-    name: 'fk_users_orders',
-    fromTable: 't1',
-    fromCol: 'c1',
-    toTable: 't2',
-    toCol: 'c2',
-    type: 'N:M',
-  },
-];
+const INITIAL_RELS: Relationship[] = [];
 
 // Helper: Check if a table is a "Pure" Associative Table (Intersection)
 // Criteria: Exactly 2 columns, both are FKs, and neither is Unique (which would imply 1:1)
@@ -809,7 +799,7 @@ export const useSchemaData = (viewMode: string) => {
     resetRelRouting: (id: string) => {
         setRelationships(prev => prev.map(r => r.id === id ? { ...r, sourceSide: undefined, targetSide: undefined, controlPoints: [] } : r));
     },
-    setRelRouting: (id: string, source: 'left' | 'right', target: 'left' | 'right') => {
+    setRelRouting: (id: string, source: 'left' | 'right' | 'top' | 'bottom', target: 'left' | 'right' | 'top' | 'bottom') => {
         setRelationships(prev => prev.map(r => r.id === id ? { ...r, sourceSide: source, targetSide: target } : r));
     },
     addControlPoint: (relId: string, x: number, y: number, index?: number) => {
