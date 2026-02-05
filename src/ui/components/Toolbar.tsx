@@ -163,27 +163,27 @@ const RightContent = ({
   );
 };
 
-const CenterContent = () => {
-  return (
-    <div className="flex-1 max-w-xl mx-8 relative hidden md:block group">
-      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-        <span className="material-icons-round text-slate-400 dark:text-slate-500 group-focus-within:text-primary transition-colors">
-          search
-        </span>
-      </div>
-      <input
-        className="placeholder:text-transparent xl:placeholder-slate-500 text-slate-900 block w-full pl-10 pr-3 py-2 border-none rounded-xl leading-5 bg-slate-100 dark:bg-slate-800/50 dark:text-slate-100  focus:outline-none focus:ring-2 focus:ring-primary/50 sm:text-sm transition-all shadow-inner"
-        placeholder="Search tables, fields, or type a command..."
-        type="text"
-      />
-      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-        <span className="text-xs text-slate-400 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5">
-          Ctrl+K
-        </span>
-      </div>
-    </div>
-  );
-};
+// const CenterContent = () => {
+//   return (
+//     <div className="flex-1 max-w-xl mx-8 relative hidden md:block group">
+//       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+//         <span className="material-icons-round text-slate-400 dark:text-slate-500 group-focus-within:text-primary transition-colors">
+//           search
+//         </span>
+//       </div>
+//       <input
+//         className="placeholder:text-transparent xl:placeholder-slate-500 text-slate-900 block w-full pl-10 pr-3 py-2 border-none rounded-xl leading-5 bg-slate-100 dark:bg-slate-800/50 dark:text-slate-100  focus:outline-none focus:ring-2 focus:ring-primary/50 sm:text-sm transition-all shadow-inner"
+//         placeholder="Search tables, fields, or type a command..."
+//         type="text"
+//       />
+//       <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+//         <span className="text-xs text-slate-400 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5">
+//           Ctrl+K
+//         </span>
+//       </div>
+//     </div>
+//   );
+// };
 
 const LeftContent = ({ onToggleSidebar }: any) => {
   return (

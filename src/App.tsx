@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
 import type { ViewOptions, WarningData, Table, Relationship } from './ui/types';
 import { useSchemaData } from './ui/hooks/useSchemaData';
 import Toolbar from './ui/components/Toolbar';
@@ -85,7 +84,7 @@ const App = () => {
     actions,
   } = useSchemaData(viewMode);
 
-  // --- Keyboard Shortcuts (Delete/Backspace & N for New Table) ---
+  // --- Keyboard Shortcuts ---
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if typing in an input or textarea
@@ -97,12 +96,10 @@ const App = () => {
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (relMenu) {
           e.preventDefault();
-          // Priority: If a relationship menu is active, delete that relationship
           actions.deleteRel(relMenu.id);
           setRelMenu(null);
         } else if (selectedId) {
           e.preventDefault();
-          // Otherwise, if a table is selected, delete the table
           actions.deleteTable(selectedId);
           setSelectedId(null);
           setIsPropertiesPanelOpen(false);
@@ -110,10 +107,27 @@ const App = () => {
       }
 
       // 'N' for New Table
-      if (e.key.toLowerCase() === 'n') {
+      if (e.key.toLowerCase() === 'n' && !e.ctrlKey && !e.metaKey) {
         const newId = actions.addTable(sidebarWidth, pan, zoom);
         setSelectedId(newId);
         setIsPropertiesPanelOpen(true);
+      }
+
+      // Zoom Shortcuts (Ctrl + / Ctrl -)
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === '=' || e.key === '+') {
+          e.preventDefault();
+          setZoom((prev) => Math.min(prev + 0.1, 2));
+        }
+        if (e.key === '-') {
+          e.preventDefault();
+          setZoom((prev) => Math.max(prev - 0.1, 0.1));
+        }
+        if (e.key === '0') {
+          e.preventDefault();
+          setZoom(1);
+          setPan({ x: 0, y: 0 });
+        }
       }
     };
 
@@ -159,7 +173,6 @@ const App = () => {
   // Determine Nullability of Target Column for Active Rel
   const targetColNullable = useMemo(() => {
     if (!activeRel) return false;
-    // Check viewTables because it might be a virtual table
     const tTable = viewTables.find((t) => t.id === activeRel.toTable);
     const tCol = tTable?.columns.find((c) => c.id === activeRel.toCol);
     return tCol?.isNullable || false;
@@ -190,17 +203,7 @@ const App = () => {
             }}
             onResolveCollision={(action) => {
               if (warningModal.type === 'collision') {
-                // This logic is specifically for Table Mode collisions
                 if (action === 'create_new') {
-                  // Pass a dummy targetCId which triggers "create new" logic in app (or we call a specific method)
-                  // Actually, DiagramCanvas has logic to create new if no column matches.
-                  // We need to simulate the "create new column" logic.
-                  // We can use actions.applyConnection to specific column OR actions.addColumn + actions.applyConnection?
-                  // Simpler: The DiagramCanvas logic for "Complete Connection to New Column"
-                  // essentially calls actions.applyConnection but generates the col first.
-                  // Let's implement a specific handler here or call DiagramCanvas logic?
-                  // No, `actions` has all we need.
-                  // We can replicate logic:
                   const sourceTable = tables.find((t) => t.id === warningModal.data.sourceTId);
                   const sourceCol = sourceTable?.columns.find(
                     (c) => c.id === warningModal.data.sourceCId,
@@ -208,7 +211,6 @@ const App = () => {
                   const targetTable = tables.find((t) => t.id === warningModal.data.targetTId);
 
                   if (sourceTable && sourceCol && targetTable) {
-                    // Generate new name
                     let newName = sourceCol.name;
                     let newLogicalName = sourceCol.logicalName;
                     let counter = 2;
@@ -221,42 +223,6 @@ const App = () => {
                       newLogicalName = `${sourceCol.logicalName} ${counter}`;
                       counter++;
                     }
-
-                    // Add Column first
-                    // Problem: actions.addColumn adds a generic column. We need to add specific column.
-                    // Let's manually manipulate state or enhance useSchemaData?
-                    // Actually, simpler: call `actions.applyConnection` but trick it? No.
-                    // Let's manually trigger the creation using setTables/setRelationships via DiagramCanvas logic...
-                    // OR - better - create a dedicated action in useSchemaData for "AddFKColumnAndLink"
-                    // Since we don't have that yet, let's just trigger applyConnection to a NEW ID if we could...
-                    // BUT wait, applyConnection expects targetCId to exist.
-
-                    // RE-USE existing logic: Just close modal and call the `onCompleteNewColConnection` equivalent?
-                    // We can't access DiagramCanvas internal methods here.
-                    // Let's use the DiagramCanvas logic: we'll call applyConnection with a NON-EXISTENT targetCId?
-                    // No, applyConnection fails if col doesn't exist.
-
-                    // FIX: We will just call actions.applyConnection to the TARGET table but with a "magic" flag? No.
-                    // Let's just create the column manually here using setTables exposed via actions (it is not exposed).
-                    // Ok, let's use `actions.addColumn` then `actions.updateColumn` then `actions.applyConnection`.
-
-                    // 1. Add Column (generic)
-                    // We can't easily get the ID of the new column synchronously.
-
-                    // BACKTRACK: DiagramCanvas has logic `completeConnectionToNewColumn`.
-                    // We should move that logic to `useSchemaData` as `actions.createFkConnection`?
-                    // For now, let's use the `onApplyConnection` prop in DiagramCanvas which IS `actions.applyConnection`.
-                    // That function ADDS the FK property to existing column.
-
-                    // Let's implement `createFkConnection` in useSchemaData in next step if needed?
-                    // Actually, let's look at `actions.applyConnection` implementation in `useSchemaData.ts`.
-                    // It sets `isFk: true`. It does NOT create columns.
-
-                    // Solution: We will pass a callback from DiagramCanvas to App that handles "force create new".
-                    // But App renders WarningModal.
-
-                    // Let's implement the logic right here in App.tsx using setTables/setRelationships directly?
-                    // We have them!
 
                     const newColId = Math.random().toString(36).substr(2, 9);
                     setTables((prev) =>
@@ -303,7 +269,6 @@ const App = () => {
                     ]);
                   }
                 } else if (action === 'use_existing' && warningModal.data.targetCId) {
-                  // Just link to existing. applyConnection handles updating type/isFk
                   actions.applyConnection(
                     warningModal.data.sourceTId,
                     warningModal.data.sourceCId,
@@ -397,38 +362,20 @@ const App = () => {
             onUpdateControlPoint={actions.updateControlPoint}
             onDeleteControlPoint={actions.deleteControlPoint}
             onSetControlPoints={actions.setControlPoints}
+            // Passing actions for mobile FAB within canvas
+            onAddTable={() => {
+              const newId = actions.addTable(0, pan, zoom);
+              setSelectedId(newId);
+              setIsPropertiesPanelOpen(true);
+            }}
+            onDeleteSelected={() => {
+              if (selectedId) {
+                actions.deleteTable(selectedId);
+                setSelectedId(null);
+                setIsPropertiesPanelOpen(false);
+              }
+            }}
           />
-
-          {/* Floating Action Buttons (FABs) */}
-          <div className="md:hidden fixed bottom-6 right-6 z-40">
-            <button
-              onClick={() => {
-                const newId = actions.addTable(0, pan, zoom);
-                setSelectedId(newId);
-                setIsPropertiesPanelOpen(true);
-              }}
-              className="w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
-              title="Add New Table"
-            >
-              <Plus size={28} />
-            </button>
-          </div>
-
-          {selectedId && (
-            <div className="md:hidden fixed bottom-6 left-6 z-40">
-              <button
-                onClick={() => {
-                  actions.deleteTable(selectedId);
-                  setSelectedId(null);
-                  setIsPropertiesPanelOpen(false);
-                }}
-                className="w-14 h-14 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
-                title="Delete Selected Table"
-              >
-                <Trash2 size={24} />
-              </button>
-            </div>
-          )}
 
           {/* Relationship Context Menu */}
           {relMenu && activeRel && (
@@ -441,7 +388,6 @@ const App = () => {
               onUpdateName={(name) => actions.updateRelName(activeRel.id, name)}
               onUpdateCardinality={(type, isNullable) => {
                 actions.updateCardinality(activeRel.id, type, isNullable);
-                // Don't close menu immediately so user can see changes or adjust routing
               }}
               onResetRouting={() => {
                 actions.resetRelRouting(activeRel.id);

@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { ZoomIn, ZoomOut, Maximize, Plus, Trash2 } from 'lucide-react';
 import type {
   Table,
   Relationship,
@@ -37,7 +38,7 @@ interface DiagramCanvasProps {
 
   // View State (Shared with Toolbar)
   zoom: number;
-  setZoom: (z: number) => void;
+  setZoom: React.Dispatch<React.SetStateAction<number>>; // Changed to full Dispatch for functional updates
   pan: { x: number; y: number };
   setPan: React.Dispatch<React.SetStateAction<{ x: number; y: number }>>;
 
@@ -77,6 +78,10 @@ interface DiagramCanvasProps {
   onUpdateControlPoint: (relId: string, index: number, x: number, y: number) => void;
   onDeleteControlPoint: (relId: string, index: number) => void;
   onSetControlPoints?: (relId: string, points: { x: number; y: number }[]) => void;
+
+  // App Actions (passed down for UI buttons inside canvas)
+  onAddTable?: () => void;
+  onDeleteSelected?: () => void;
 }
 
 const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
@@ -111,6 +116,8 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
   onUpdateControlPoint,
   onDeleteControlPoint,
   onSetControlPoints,
+  onAddTable,
+  onDeleteSelected,
 }) => {
   const mainRef = useRef<HTMLDivElement>(null);
 
@@ -137,6 +144,18 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
   // Refs
   const touchDist = useRef<number | null>(null);
 
+  // Refs for current zoom/pan to be used in non-passive event listeners
+  const zoomRef = useRef(zoom);
+  const panRef = useRef(pan);
+
+  // Sync refs with state
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
+  useEffect(() => {
+    panRef.current = pan;
+  }, [pan]);
+
   // --- Resize Observer for Minimap ---
   useEffect(() => {
     if (!mainRef.current) return;
@@ -156,6 +175,48 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
 
     return () => observer.disconnect();
   }, []);
+
+  // --- Wheel Event Listener (Native, Non-Passive) ---
+  // This is crucial to prevent browser zoom (Ctrl+Wheel) when hovering canvas
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault(); // Stop browser zoom
+
+        const zoomSensitivity = 0.001;
+        const delta = -e.deltaY * zoomSensitivity;
+        const currentZoom = zoomRef.current;
+        const currentPan = panRef.current;
+
+        // Calculate new zoom level
+        const newZoom = Math.min(Math.max(0.1, currentZoom + delta * currentZoom), 2);
+
+        const rect = el.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // Calculate world coordinates before zoom
+        const worldX = (mouseX - currentPan.x) / currentZoom;
+        const worldY = (mouseY - currentPan.y) / currentZoom;
+
+        // Calculate new pan to keep mouse pointing at same world coordinates
+        const newPanX = mouseX - worldX * newZoom;
+        const newPanY = mouseY - worldY * newZoom;
+
+        setZoom(newZoom);
+        setPan({ x: newPanX, y: newPanY });
+      }
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+    };
+  }, [setZoom, setPan]);
 
   // --- Keyboard Listener for Delete ---
   useEffect(() => {
@@ -205,7 +266,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
         e.touches[0].clientY - e.touches[1].clientY,
       );
       const scale = newDist / touchDist.current;
-      setZoom(Math.min(Math.max(0.5, zoom * scale), 2));
+      setZoom((prev) => Math.min(Math.max(0.5, prev * scale), 2));
       touchDist.current = newDist;
     }
   };
@@ -870,6 +931,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
+      // Note: onWheel is removed here in favor of native listener in useEffect
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -1254,6 +1316,64 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
           containerHeight={containerSize.height}
           theme={theme}
         />
+      )}
+
+      {/* Floating Zoom Controls (Absolute Positioned inside Canvas) */}
+      <div className="absolute bottom-6 left-6 z-40 flex flex-col gap-2">
+        <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-slate-200 dark:border-slate-700 p-1.5 rounded-lg shadow-lg flex flex-col items-center gap-1">
+          <button
+            onClick={() => setZoom((z) => Math.min(2, z + 0.1))}
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md text-slate-600 dark:text-slate-300 transition-colors"
+            title="Zoom In (Ctrl +)"
+          >
+            <ZoomIn size={20} />
+          </button>
+          <div className="w-10 py-1 text-center font-mono text-[10px] font-bold text-slate-500 dark:text-slate-400 border-y border-slate-100 dark:border-slate-700 my-0.5 select-none">
+            {Math.round(zoom * 100)}%
+          </div>
+          <button
+            onClick={() => setZoom((z) => Math.max(0.1, z - 0.1))}
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md text-slate-600 dark:text-slate-300 transition-colors"
+            title="Zoom Out (Ctrl -)"
+          >
+            <ZoomOut size={20} />
+          </button>
+          <button
+            onClick={() => {
+              setZoom(1);
+              setPan({ x: 0, y: 0 });
+            }}
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md text-slate-600 dark:text-slate-300 transition-colors border-t border-slate-100 dark:border-slate-700 mt-1"
+            title="Reset View (Ctrl 0)"
+          >
+            <Maximize size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* Floating Action Buttons (Mobile Only) - Moved here to respect canvas z-index */}
+      {onAddTable && (
+        <div className="md:hidden absolute bottom-6 right-6 z-40">
+          <button
+            onClick={onAddTable}
+            className="w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
+            title="Add New Table"
+          >
+            <Plus size={28} />
+          </button>
+        </div>
+      )}
+
+      {selectedId && onDeleteSelected && (
+        <div className="md:hidden absolute bottom-24 right-6 z-40">
+          <button
+            onClick={onDeleteSelected}
+            className="w-14 h-14 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
+            title="Delete Selected Table"
+          >
+            <Trash2 size={24} />
+          </button>
+        </div>
       )}
     </main>
   );
