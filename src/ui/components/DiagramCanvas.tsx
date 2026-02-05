@@ -22,6 +22,7 @@ import {
 import TableNode from './table-nodes/TableNode';
 import { CardinalityMarkers } from './CardinalityMarkers';
 import type { DbEngine } from '../../utils/dbDataTypes';
+import Minimap from './Minimap';
 
 interface DiagramCanvasProps {
   // Data State
@@ -130,8 +131,31 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
   const [isConnecting, setIsConnecting] = useState(false);
   const [tempConnection, setTempConnection] = useState<TempConnection | null>(null);
 
+  // Canvas Dimensions for Minimap
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+
   // Refs
   const touchDist = useRef<number | null>(null);
+
+  // --- Resize Observer for Minimap ---
+  useEffect(() => {
+    if (!mainRef.current) return;
+    
+    const updateSize = () => {
+      if (mainRef.current) {
+        setContainerSize({
+          width: mainRef.current.clientWidth,
+          height: mainRef.current.clientHeight,
+        });
+      }
+    };
+
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(mainRef.current);
+
+    return () => observer.disconnect();
+  }, []);
 
   // --- Keyboard Listener for Delete ---
   useEffect(() => {
@@ -1209,6 +1233,20 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
           />
         ))}
       </div>
+      
+      {viewOptions.showMinimap && (
+        <Minimap
+          tables={viewTables}
+          relationships={viewRelationships}
+          viewOptions={viewOptions}
+          zoom={zoom}
+          pan={pan}
+          setPan={setPan}
+          containerWidth={containerSize.width}
+          containerHeight={containerSize.height}
+          theme={theme}
+        />
+      )}
     </main>
   );
 };

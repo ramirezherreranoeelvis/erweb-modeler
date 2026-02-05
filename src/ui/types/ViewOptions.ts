@@ -10,6 +10,7 @@ export interface ViewOptions {
   showCardinality: boolean;
   showCardinalityNumeric: boolean;
   showRelationshipNames: boolean;
+  showMinimap: boolean;
   snapToGrid: boolean;
   gridStyle: 'none' | 'dots' | 'squares';
   lineStyle: 'curved' | 'orthogonal';

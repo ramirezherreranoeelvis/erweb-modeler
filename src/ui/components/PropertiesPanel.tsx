@@ -2,12 +2,7 @@ import React, { useState } from 'react';
 import { Settings, X, Lock, Key, Trash2, GripVertical, AlertTriangle } from 'lucide-react';
 import type { Table, Relationship } from '../types';
 import type { DbEngine } from '../../utils/dbDataTypes';
-import {
-  DB_DATA_TYPES,
-  shouldShowLength,
-  isTypeValid,
-  isLengthRequired,
-} from '../../utils/dbDataTypes';
+import { DB_DATA_TYPES, shouldShowLength, isTypeValid, isLengthRequired } from '../../utils/dbDataTypes';
 
 interface PropertiesPanelProps {
   selectedTable: Table;
@@ -189,7 +184,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                     <div className="flex gap-2 items-end">
                       <div className="w-24 shrink-0 relative">
                         <label className="text-[9px] text-slate-400 font-bold mb-0.5 flex items-center gap-1">
-                          Type
+                          Type 
                           {isLinkedFk && <Lock size={8} className="text-amber-500" />}
                           {!isValid && <AlertTriangle size={8} className="text-red-500" />}
                         </label>
@@ -202,25 +197,21 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                           className={`w-full text-[10px] py-1.5 px-0.5 border rounded outline-none ${
                             isLinkedFk
                               ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border-slate-300 dark:border-slate-600'
-                              : isValid
+                              : isValid 
                                 ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600'
                                 : 'bg-red-50 dark:bg-slate-800 text-red-600 border-red-400 font-bold'
                           }`}
                         >
                           {/* If the current type is not exactly in the list, add it as a preservation option */}
                           {!isExactMatch && (
-                            <option
-                              value={col.type}
-                              className={
-                                isValid
-                                  ? 'bg-slate-100 text-slate-600'
-                                  : 'bg-red-100 text-red-700 font-bold'
-                              }
+                            <option 
+                              value={col.type} 
+                              className={isValid ? 'bg-slate-100 text-slate-600' : 'bg-red-100 text-red-700 font-bold'}
                             >
                               {col.type} {isValid ? '' : '(Invalid)'}
                             </option>
                           )}
-
+                          
                           {availableTypes.map((t, idx) => (
                             <option key={`${t}-${idx}`} value={t}>
                               {t}
@@ -233,7 +224,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                         <div className="w-16 shrink-0 relative">
                           {/* Invisible spacer to maintain vertical alignment with the 'Type' label */}
                           <div className="h-[14px] mb-0.5"></div>
-
+                          
                           <div className="flex items-center justify-center">
                             <span className="text-slate-400 font-bold text-[10px] mr-1">(</span>
                             <input
@@ -244,12 +235,11 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                                 onUpdateColumn(selectedTable.id, col.id, 'length', e.target.value)
                               }
                               className={`w-full min-w-0 text-[10px] py-1.5 px-0.5 text-center border rounded outline-none focus:ring-1 focus:ring-blue-500 transition-colors
-                                ${
-                                  isLinkedFk
-                                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border-slate-300 dark:border-slate-600'
-                                    : isLenMissing
-                                      ? 'bg-red-50 dark:bg-red-900/20 border-red-500 text-red-900 dark:text-red-100 placeholder-red-300'
-                                      : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 focus:border-blue-500'
+                                ${isLinkedFk 
+                                  ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border-slate-300 dark:border-slate-600' 
+                                  : isLenMissing
+                                    ? 'bg-red-50 dark:bg-red-900/20 border-red-500 text-red-900 dark:text-red-100 placeholder-red-300'
+                                    : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 focus:border-blue-500'
                                 }`}
                             />
                             <span className="text-slate-400 font-bold text-[10px] ml-1">)</span>
@@ -303,9 +293,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                           title={
                             col.isFk
                               ? `Foreign Keys cannot be ${dbEngine === 'mysql' ? 'Auto Increment' : 'Identity'}`
-                              : dbEngine === 'mysql'
-                                ? 'Auto Increment'
-                                : 'Identity'
+                              : (dbEngine === 'mysql' ? 'Auto Increment' : 'Identity')
                           }
                         >
                           <span className="text-[8px] font-bold text-slate-400 mb-0.5 group-hover/chk:text-purple-600">

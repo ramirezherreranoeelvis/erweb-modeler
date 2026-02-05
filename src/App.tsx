@@ -50,6 +50,7 @@ const App = () => {
     showCardinality: true,
     showCardinalityNumeric: false,
     showRelationshipNames: false,
+    showMinimap: true,
     snapToGrid: true,
     gridStyle: 'none',
     lineStyle: 'orthogonal',
