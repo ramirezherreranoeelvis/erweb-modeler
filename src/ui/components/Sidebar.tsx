@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Plus, Trash2, Eye, GitMerge, Edit3, Lock, Grid, Table2, List } from 'lucide-react';
 import type { ViewOptions } from '../types';
@@ -28,7 +27,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     <aside
       className={`
       fixed top-14 bottom-0 left-0 w-64 md:w-56 z-30
-      bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 
+      bg-white dark:bg-slate-900/80 border-r border-slate-200 dark:border-slate-700 
       flex flex-col p-3 shadow-xl md:shadow-sm md:static shrink-0 gap-4 overflow-y-auto transition-transform duration-300
       ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
     `}
@@ -39,7 +38,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-all ${
           globalEditable
             ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700'
-            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'
+            : 'bg-slate-100 dark:bg-slate-800/50 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'
         }`}
       >
         <div
@@ -81,22 +80,29 @@ const Sidebar: React.FC<SidebarProps> = ({
           className={`flex flex-col items-center justify-center p-3 border rounded-lg transition-all gap-1 ${
             selectedId
               ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40'
-              : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-300 dark:text-slate-600 cursor-not-allowed'
+              : 'border-slate-200 dark:border-slate-700  text-slate-500 dark:text-slate-400 cursor-not-allowed'
           }`}
         >
           <Trash2 size={20} /> <span className="text-[10px] font-bold">Delete</span>
         </button>
       </div>
 
-      <div className="h-px bg-slate-200 dark:bg-slate-700"></div>
+      <div className="h-px bg-slate-200 dark:bg-slate-700/50"></div>
       <div>
-        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-1">
-          <Eye size={12} /> View Options
-        </h3>
+        {/* CheckBox */}
         <div className="space-y-2">
+          <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-1">
+            <Eye size={12} /> View Options
+          </h3>
           {Object.entries(viewOptions).map(([key, val]) => {
             // REMOVED snapToGrid from display
-            if (key === 'lineStyle' || key === 'gridStyle' || key === 'connectionMode' || key === 'snapToGrid') return null;
+            if (
+              key === 'lineStyle' ||
+              key === 'gridStyle' ||
+              key === 'connectionMode' ||
+              key === 'snapToGrid'
+            )
+              return null;
             return (
               <label
                 key={key}
@@ -111,7 +117,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                       [key]: e.target.checked,
                     })
                   }
-                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                  className="rounded w-4 h-4 border-[0.5px] border-solid
+                  border-slate-300- text-blue-600 focus:ring-blue-500 border-[#475569]
+                  checked:bg-surface-dark
+                  "
                 />
                 {key
                   .replace(/^show/, '')
@@ -125,29 +134,29 @@ const Sidebar: React.FC<SidebarProps> = ({
         {/* Connection Mode */}
         <div className="mt-4">
           <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
-             <List size={12} /> Connection Mode
+            <List size={12} /> Connection Mode
           </h3>
-          <div className="flex bg-slate-100 dark:bg-slate-700 p-0.5 rounded border border-slate-200 dark:border-slate-600">
-             <button
-                onClick={() => setViewOptions({ ...viewOptions, connectionMode: 'column' })}
-                className={`flex-1 py-1 text-[10px] font-bold rounded transition-all flex items-center justify-center gap-1 ${
-                  viewOptions.connectionMode === 'column'
-                    ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300 shadow-sm'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                }`}
-             >
-                <List size={10} /> Column
-             </button>
-             <button
-                onClick={() => setViewOptions({ ...viewOptions, connectionMode: 'table' })}
-                className={`flex-1 py-1 text-[10px] font-bold rounded transition-all flex items-center justify-center gap-1 ${
-                  viewOptions.connectionMode === 'table'
-                    ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300 shadow-sm'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                }`}
-             >
-                <Table2 size={10} /> Table
-             </button>
+          <div className="flex bg-slate-100 dark:bg-slate-800/50 p-1 rounded">
+            <button
+              onClick={() => setViewOptions({ ...viewOptions, connectionMode: 'column' })}
+              className={`flex-1 py-1 text-[10px] font-bold rounded transition-all flex items-center justify-center gap-1 ${
+                viewOptions.connectionMode === 'column'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-slate-300 shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+            >
+              <List size={10} /> Column
+            </button>
+            <button
+              onClick={() => setViewOptions({ ...viewOptions, connectionMode: 'table' })}
+              className={`flex-1 py-1 text-[10px] font-bold rounded transition-all flex items-center justify-center gap-1 ${
+                viewOptions.connectionMode === 'table'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-slate-300 shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+            >
+              <Table2 size={10} /> Table
+            </button>
           </div>
         </div>
 
@@ -159,7 +168,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <select
             value={viewOptions.gridStyle}
             onChange={(e) => setViewOptions({ ...viewOptions, gridStyle: e.target.value as any })}
-            className="w-full text-xs p-1.5 border border-slate-300 dark:border-slate-600 rounded bg-slate-50 dark:bg-slate-700 text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500"
+            className="w-full text-xs p-1.5 rounded bg-slate-50 dark:bg-[#151F33] text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500"
           >
             <option value="none">None</option>
             <option value="dots">Dots</option>
@@ -167,11 +176,12 @@ const Sidebar: React.FC<SidebarProps> = ({
           </select>
         </div>
 
+        {/* LinyStyle */}
         <div className="mt-4">
           <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
             <GitMerge size={12} /> Line Style
           </h3>
-          <div className="flex bg-slate-100 dark:bg-slate-700 p-0.5 rounded border border-slate-200 dark:border-slate-600">
+          <div className="flex bg-slate-100 dark:bg-slate-800/50 p-1 rounded">
             <button
               onClick={() =>
                 setViewOptions({
@@ -181,7 +191,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               }
               className={`flex-1 py-1 text-[10px] font-bold rounded transition-all ${
                 viewOptions.lineStyle === 'curved'
-                  ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300 shadow-sm'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-slate-300 shadow-sm'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
               }`}
             >
@@ -196,7 +206,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               }
               className={`flex-1 py-1 text-[10px] font-bold rounded transition-all ${
                 viewOptions.lineStyle === 'orthogonal'
-                  ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300 shadow-sm'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-slate-300 shadow-sm'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
               }`}
             >

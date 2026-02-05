@@ -86,7 +86,9 @@ const TableNode: React.FC<TableNodeProps> = ({
   // Style for the connector dots - Fixed visibility logic:
   // Visible if Selected OR Hovering the Table (group-hover/table)
   const pointConnectionClass = `absolute w-3 h-3 bg-blue-500 border-2 border-white dark:border-slate-800 rounded-full cursor-crosshair shadow-sm z-50 transition-all duration-200 hover:scale-125 ${
-    isSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-50 group-hover/table:opacity-100 group-hover/table:scale-100'
+    isSelected
+      ? 'opacity-100 scale-100'
+      : 'opacity-0 scale-50 group-hover/table:opacity-100 group-hover/table:scale-100'
   }`;
 
   return (

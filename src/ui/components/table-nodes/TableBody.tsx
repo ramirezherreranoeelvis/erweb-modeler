@@ -89,7 +89,7 @@ const TableBody: React.FC<TableBodyProps> = ({
   const showNewColDropZone = viewOptions.connectionMode === 'column';
 
   return (
-    <div className="flex flex-col bg-white dark:bg-slate-800 rounded-b-lg pb-1 relative">
+    <div className="flex flex-col bg-white dark:bg-[#0d1527] rounded-b-lg pb-1 relative">
       {table.columns.map((col, index) => (
         <TableRow
           key={col.id}
