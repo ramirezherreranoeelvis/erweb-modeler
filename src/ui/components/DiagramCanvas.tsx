@@ -140,7 +140,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
   // --- Resize Observer for Minimap ---
   useEffect(() => {
     if (!mainRef.current) return;
-    
+
     const updateSize = () => {
       if (mainRef.current) {
         setContainerSize({
@@ -466,7 +466,8 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
       const sourceCId = tempConnection.sourceColId;
 
       // 1. Basic Validations
-      if (sourceTId === targetTableId) { // Prevent self-connection for simplicity in this logic
+      if (sourceTId === targetTableId) {
+        // Prevent self-connection for simplicity in this logic
         setIsConnecting(false);
         setTempConnection(null);
         return;
@@ -486,48 +487,51 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
 
       // --- TABLE MODE CONNECTION LOGIC ---
       if (viewOptions.connectionMode === 'table') {
-         // In Table Mode, we check for Name Collisions with Source PK
-         // We ignore `targetColId` because we dropped on the table (or a row treated as table)
-         
-         // 1. Check if relationship already exists between these tables
-         const existingRel = relationships.find(r => 
+        // In Table Mode, we check for Name Collisions with Source PK
+        // We ignore `targetColId` because we dropped on the table (or a row treated as table)
+
+        // 1. Check if relationship already exists between these tables
+        const existingRel = relationships.find(
+          (r) =>
             (r.fromTable === sourceTId && r.toTable === targetTableId) ||
-            (r.fromTable === targetTableId && r.toTable === sourceTId)
-         );
-         
-         if (existingRel) {
-             setIsConnecting(false);
-             setTempConnection(null);
-             return;
-         }
+            (r.fromTable === targetTableId && r.toTable === sourceTId),
+        );
 
-         // 2. Check for Name Collision
-         const existingTargetCol = targetTable.columns.find(c => c.name.toLowerCase() === sourceCol.name.toLowerCase());
+        if (existingRel) {
+          setIsConnecting(false);
+          setTempConnection(null);
+          return;
+        }
 
-         if (existingTargetCol) {
-             // COLLISION DETECTED: Prompt user
-             setWarningModal({
-                 isOpen: true,
-                 type: 'collision',
-                 data: {
-                     sourceTId,
-                     sourceCId,
-                     targetTId: targetTableId,
-                     targetCId: existingTargetCol.id,
-                     sourceCol,
-                     targetCol: existingTargetCol
-                 }
-             });
-         } else {
-             // NO COLLISION: Auto-create new column (Standard behavior)
-             completeConnectionToNewColumn(e, targetTableId);
-             // completeConnectionToNewColumn handles cleanup
-             return;
-         }
-         
-         setIsConnecting(false);
-         setTempConnection(null);
-         return;
+        // 2. Check for Name Collision
+        const existingTargetCol = targetTable.columns.find(
+          (c) => c.name.toLowerCase() === sourceCol.name.toLowerCase(),
+        );
+
+        if (existingTargetCol) {
+          // COLLISION DETECTED: Prompt user
+          setWarningModal({
+            isOpen: true,
+            type: 'collision',
+            data: {
+              sourceTId,
+              sourceCId,
+              targetTId: targetTableId,
+              targetCId: existingTargetCol.id,
+              sourceCol,
+              targetCol: existingTargetCol,
+            },
+          });
+        } else {
+          // NO COLLISION: Auto-create new column (Standard behavior)
+          completeConnectionToNewColumn(e, targetTableId);
+          // completeConnectionToNewColumn handles cleanup
+          return;
+        }
+
+        setIsConnecting(false);
+        setTempConnection(null);
+        return;
       }
 
       // --- COLUMN MODE CONNECTION LOGIC ---
@@ -861,7 +865,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
   return (
     <main
       ref={mainRef}
-      className="flex-1 bg-slate-50 dark:bg-slate-900 relative overflow-hidden transition-colors duration-200 touch-none"
+      className="flex-1 bg-slate-50 dark:bg-[#0B1120] relative overflow-hidden transition-colors duration-200 touch-none"
       onPointerDown={handleCanvasPointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -971,34 +975,38 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
               const labelWidth = (rel.name ? rel.name.length * charWidth : 40) + padding;
 
               const getLabelProps = (x: number, y: number, table?: Table) => {
-                  if (!table) return { x, y: y - 5, anchor: 'middle' };
-                  
-                  const h = getTableHeight(table);
-                  const isTop = Math.abs(y - table.y) <= 5;
-                  const isBottom = Math.abs(y - (table.y + h)) <= 5;
-                  const isLeft = Math.abs(x - table.x) <= 5;
-                  const isRight = Math.abs(x - (table.x + TABLE_WIDTH)) <= 5;
+                if (!table) return { x, y: y - 5, anchor: 'middle' };
 
-                  // Increased separation for vertical labels to fix overlap
-                  if (isTop) return { x: x + 6, y: y - 12, anchor: 'start' }; 
-                  if (isBottom) return { x: x + 6, y: y + 20, anchor: 'start' }; 
-                  if (isLeft) return { x: x - 8, y: y - 6, anchor: 'end' }; 
-                  if (isRight) return { x: x + 8, y: y - 6, anchor: 'start' };
-                  
-                  // Fallback
-                  const centerX = table.x + TABLE_WIDTH / 2;
-                  return { 
-                      x: x + (x > centerX ? 10 : -10),
-                      y: y - 5, 
-                      anchor: x > centerX ? 'start' : 'end'
-                  };
+                const h = getTableHeight(table);
+                const isTop = Math.abs(y - table.y) <= 5;
+                const isBottom = Math.abs(y - (table.y + h)) <= 5;
+                const isLeft = Math.abs(x - table.x) <= 5;
+                const isRight = Math.abs(x - (table.x + TABLE_WIDTH)) <= 5;
+
+                // Increased separation for vertical labels to fix overlap
+                if (isTop) return { x: x + 6, y: y - 12, anchor: 'start' };
+                if (isBottom) return { x: x + 6, y: y + 20, anchor: 'start' };
+                if (isLeft) return { x: x - 8, y: y - 6, anchor: 'end' };
+                if (isRight) return { x: x + 8, y: y - 6, anchor: 'start' };
+
+                // Fallback
+                const centerX = table.x + TABLE_WIDTH / 2;
+                return {
+                  x: x + (x > centerX ? 10 : -10),
+                  y: y - 5,
+                  anchor: x > centerX ? 'start' : 'end',
+                };
               };
-              
-              const startTable = viewTables.find(t => t.id === rel.fromTable);
-              const endTable = viewTables.find(t => t.id === rel.toTable);
-              
-              const startLabelProps = pts ? getLabelProps(pts.p1x, pts.p1y, startTable) : { x: 0, y: 0, anchor: 'middle' };
-              const endLabelProps = pts ? getLabelProps(pts.p2x, pts.p2y, endTable) : { x: 0, y: 0, anchor: 'middle' };
+
+              const startTable = viewTables.find((t) => t.id === rel.fromTable);
+              const endTable = viewTables.find((t) => t.id === rel.toTable);
+
+              const startLabelProps = pts
+                ? getLabelProps(pts.p1x, pts.p1y, startTable)
+                : { x: 0, y: 0, anchor: 'middle' };
+              const endLabelProps = pts
+                ? getLabelProps(pts.p2x, pts.p2y, endTable)
+                : { x: 0, y: 0, anchor: 'middle' };
 
               return (
                 <g
@@ -1233,7 +1241,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
           />
         ))}
       </div>
-      
+
       {viewOptions.showMinimap && (
         <Minimap
           tables={viewTables}
