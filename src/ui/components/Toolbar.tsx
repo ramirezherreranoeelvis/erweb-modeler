@@ -30,7 +30,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
     >
       <LeftContent onToggleSidebar={onToggleSidebar} />
       {/* center */}
-      <CenterContent />
+      {/* <CenterContent /> */}
       {/* right */}
       <RightContent
         viewMode={viewMode}
