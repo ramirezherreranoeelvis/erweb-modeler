@@ -1,17 +1,5 @@
 import React, { useState } from 'react';
-import {
-  Database,
-  ZoomIn,
-  ZoomOut,
-  Save,
-  Moon,
-  Sun,
-  Menu,
-  Server,
-  FileInput,
-  ChevronDown,
-  Check,
-} from 'lucide-react';
+import { Save, Menu, Server, FileInput, ChevronDown, Check } from 'lucide-react';
 import { DB_ENGINES } from '../../utils/dbDataTypes';
 import type { DbEngine } from '../../utils/dbDataTypes';
 
@@ -20,10 +8,6 @@ interface ToolbarProps {
   setViewMode: (mode: string) => void;
   dbEngine: DbEngine;
   setDbEngine: (engine: DbEngine) => void;
-  zoom: number;
-  setZoom: React.Dispatch<React.SetStateAction<number>>;
-  theme: 'light' | 'dark';
-  setTheme: React.Dispatch<React.SetStateAction<'light' | 'dark'>>;
   onToggleSidebar: () => void;
   onExport: (includeLayout: boolean) => void;
   onImportClick: () => void;
@@ -34,19 +18,21 @@ const Toolbar: React.FC<ToolbarProps> = ({
   setViewMode,
   dbEngine,
   setDbEngine,
-  zoom,
-  setZoom,
-  theme,
-  setTheme,
   onToggleSidebar,
   onExport,
   onImportClick,
 }) => {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [includeLayout, setIncludeLayout] = useState(true);
+  const className = {
+    header: 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700',
+  };
 
   return (
-    <header className="h-14 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-4 shadow-sm z-10 shrink-0 transition-colors duration-200 relative">
+    <header
+      className={`${className.header} h-16 border-b flex items-center justify-between px-4 shadow-sm z-10 shrink-0`}
+    >
+      {/* left */}
       <div className="flex items-center gap-3">
         <button
           onClick={onToggleSidebar}
@@ -54,8 +40,8 @@ const Toolbar: React.FC<ToolbarProps> = ({
         >
           <Menu size={20} />
         </button>
-        <div className="bg-linear-to-br from-blue-600 to-indigo-700 p-1.5 rounded text-white shadow-sm">
-          <Database size={20} />
+        <div className="size-8 rounded-lg bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-neon">
+          <span className="material-icons-round text-white text-lg p-1.5">schema</span>
         </div>
         <div>
           <h1 className="font-bold text-base text-slate-700 dark:text-slate-100 leading-tight hidden sm:block">
@@ -64,13 +50,28 @@ const Toolbar: React.FC<ToolbarProps> = ({
           <h1 className="font-bold text-base text-slate-700 dark:text-slate-100 leading-tight sm:hidden">
             ERWeb
           </h1>
-          <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium hidden sm:block">
-            Professional Database Design
-          </p>
         </div>
       </div>
-
-      <div className="flex items-center gap-2">
+      {/* center */}
+      <div className="flex-1 max-w-xl mx-8 relative hidden md:block group">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <span className="material-icons-round text-slate-400 dark:text-slate-500 group-focus-within:text-primary transition-colors">
+            search
+          </span>
+        </div>
+        <input
+          className="placeholder:text-transparent xl:placeholder-slate-500 text-slate-900 block w-full pl-10 pr-3 py-2 border-none rounded-xl leading-5 bg-slate-100 dark:bg-slate-800/50 dark:text-slate-100  focus:outline-none focus:ring-2 focus:ring-primary/50 sm:text-sm transition-all shadow-inner"
+          placeholder="Search tables, fields, or type a command..."
+          type="text"
+        />
+        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+          <span className="text-xs text-slate-400 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5">
+            Ctrl+K
+          </span>
+        </div>
+      </div>
+      {/* right */}
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* DB Engine Selector */}
         <div className="flex items-center gap-2 px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded border border-slate-200 dark:border-slate-600 max-w-[120px] sm:max-w-none">
           <Server size={14} className="text-slate-500 dark:text-slate-400 shrink-0" />
@@ -90,7 +91,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
             ))}
           </select>
         </div>
-
+        {/* diagrama fisico y logico selector */}
         <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
           <button
             onClick={() => setViewMode('logical')}
@@ -105,47 +106,21 @@ const Toolbar: React.FC<ToolbarProps> = ({
             Physical
           </button>
         </div>
-      </div>
-
-      <div className="flex items-center gap-2 sm:gap-3">
-        <button
-          onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-          className="hidden p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"
-        >
-          {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-        </button>
-
-        <div className="bg-slate-100 dark:bg-slate-700 rounded-lg p-0.5 border border-slate-200 dark:border-slate-600 hidden sm:flex">
-          <button
-            onClick={() => setZoom((z) => Math.max(0.5, z - 0.1))}
-            className="p-1.5 hover:bg-white dark:hover:bg-slate-600 rounded text-slate-600 dark:text-slate-300 transition-colors"
-          >
-            <ZoomOut size={16} />
-          </button>
-          <span className="px-2 py-1.5 text-xs font-mono text-slate-500 dark:text-slate-400 select-none w-12 text-center">
-            {Math.round(zoom * 100)}%
-          </span>
-          <button
-            onClick={() => setZoom((z) => Math.min(2, z + 0.1))}
-            className="p-1.5 hover:bg-white dark:hover:bg-slate-600 rounded text-slate-600 dark:text-slate-300 transition-colors"
-          >
-            <ZoomIn size={16} />
-          </button>
-        </div>
-
+        <div className="h-6 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
+        {/* buttons import export */}
         <button
           onClick={onImportClick}
           className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded shadow text-xs font-bold transition-colors border border-slate-300 dark:border-slate-600"
           title="Import SQL"
         >
-          <FileInput size={14} />
+          <span className="material-icons-round text-sm">upload</span>
           <span className="hidden sm:inline">Import</span>
         </button>
 
         <div className="relative">
           <button
             onClick={() => setShowExportMenu(!showExportMenu)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 dark:bg-blue-600 hover:bg-slate-900 dark:hover:bg-blue-700 text-white rounded shadow text-xs font-bold transition-colors"
+            className="flex items-center gap-2 px-3 py-2.5 bg-slate-800 dark:bg-blue-600 hover:bg-slate-900 dark:hover:bg-blue-700 text-white rounded shadow text-xs font-bold transition-colors"
           >
             <Save size={14} />
             <span className="hidden sm:inline">Export</span>
@@ -155,7 +130,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
           {showExportMenu && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)}></div>
-              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+              <div className="absolute right-0 mt-2 w-48  bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
                 <div className="p-2 border-b border-slate-100 dark:border-slate-700">
                   <label className="flex items-center gap-2 p-2 rounded hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer">
                     <div

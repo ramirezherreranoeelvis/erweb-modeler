@@ -331,10 +331,6 @@ const App = () => {
           setViewMode={setViewMode}
           dbEngine={dbEngine}
           setDbEngine={setDbEngine}
-          zoom={zoom}
-          setZoom={setZoom}
-          theme={theme}
-          setTheme={setTheme}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           onExport={handleExportSQL}
           onImportClick={() => setIsImportModalOpen(true)}
