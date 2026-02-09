@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { ZoomIn, ZoomOut, Maximize, Plus, Trash2, Server } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize, Plus, Trash2, Server, Settings2 } from 'lucide-react';
 import type {
   Table,
   Relationship,
@@ -26,6 +26,7 @@ import { CardinalityMarkers } from './CardinalityMarkers';
 import type { DbEngine } from '../../utils/dbDataTypes';
 import { DB_ENGINES, areTypesCompatible, getCanonicalType } from '../../utils/dbDataTypes';
 import Minimap from './Minimap';
+import CanvasContextMenu from './CanvasContextMenu';
 
 interface DiagramCanvasProps {
   // Data State
@@ -46,6 +47,8 @@ interface DiagramCanvasProps {
 
   // Configuration
   viewOptions: ViewOptions;
+  // We need the setter here for the context menu
+  setViewOptions?: React.Dispatch<React.SetStateAction<ViewOptions>>;
   viewMode: string;
   setViewMode?: (mode: string) => void;
   theme: 'light' | 'dark';
@@ -102,6 +105,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
   pan,
   setPan,
   viewOptions,
+  setViewOptions,
   viewMode,
   setViewMode,
   theme,
@@ -140,6 +144,9 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
   });
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [hoveredRelId, setHoveredRelId] = useState<string | null>(null);
+
+  // --- Context Menu State ---
+  const [canvasMenu, setCanvasMenu] = useState<{ x: number; y: number } | null>(null);
 
   // --- Selection Box State ---
   const [isSelecting, setIsSelecting] = useState(false);
@@ -246,7 +253,23 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
 
   // --- Handlers ---
 
+  const handleCanvasContextMenu = (e: React.MouseEvent) => {
+    // Only handle if it wasn't prevented by a child (e.g., table/rel menu)
+    // Actually, TableNode prevents context menu only if Ctrl is NOT held.
+    // Here we want the BACKGROUND context menu.
+    if (e.defaultPrevented) return;
+
+    e.preventDefault();
+    setRelMenu(null);
+    setCanvasMenu({ x: e.clientX, y: e.clientY });
+  };
+
   const handleCanvasPointerDown = (e: React.PointerEvent) => {
+    // Hide context menus on any click
+    if (e.isPrimary) {
+        setCanvasMenu(null);
+    }
+
     // Only accept Left Click (button 0) for these primary actions
     if (!e.isPrimary || e.button !== 0) return;
 
@@ -267,8 +290,6 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
 
     if (effectiveMode === 'pan') {
         // --- PANNING LOGIC ---
-        // If originally in Pan Mode (and no Ctrl), we clear selection.
-        // If originally in Select Mode (and yes Ctrl), we preserve selection (don't clear just because we want to move).
         if (currentMode === 'pan' && !isCtrl) {
             setSelectedId(null);
             if (setSelectedTableIds) setSelectedTableIds(new Set());
@@ -279,8 +300,6 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
         (e.target as HTMLElement).setPointerCapture(e.pointerId);
     } else {
         // --- SELECTING LOGIC ---
-        // If originally in Select Mode (and no Ctrl), clear selection to start new box.
-        // If originally in Pan Mode (and yes Ctrl), usually implies adding/modifying selection, so keep existing.
         if (currentMode === 'select' && !isCtrl) {
             setSelectedId(null);
             if (setSelectedTableIds) setSelectedTableIds(new Set());
@@ -412,6 +431,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
     e.stopPropagation(); 
     setRelMenu(null); 
     setSelectedCP(null);
+    setCanvasMenu(null); // Close context menu if checking table
     
     const isMultiSelectModifier = e.ctrlKey || e.metaKey;
 
@@ -749,6 +769,7 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onContextMenu={handleCanvasContextMenu} // Added Context Menu Handler
       style={{
         backgroundImage: getGridBackground(),
         backgroundSize: `${40 * zoom}px ${40 * zoom}px`,
@@ -891,6 +912,21 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
           />
       )}
 
+      {/* CANVAS CONTEXT MENU */}
+      {canvasMenu && setViewOptions && (
+        <CanvasContextMenu
+          x={canvasMenu.x}
+          y={canvasMenu.y}
+          viewOptions={viewOptions}
+          setViewOptions={setViewOptions}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          dbEngine={dbEngine}
+          setDbEngine={setDbEngine}
+          onClose={() => setCanvasMenu(null)}
+        />
+      )}
+
       {viewOptions.showMinimap && ( <Minimap tables={viewTables} relationships={viewRelationships} viewOptions={viewOptions} zoom={zoom} pan={pan} setPan={setPan} containerWidth={containerSize.width} containerHeight={containerSize.height} theme={theme} /> )}
       <div className="absolute bottom-6 left-6 z-40 flex items-end gap-3">
         <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-slate-200 dark:border-slate-700 p-1.5 rounded-lg shadow-lg flex flex-col items-center gap-1">
@@ -898,14 +934,46 @@ const DiagramCanvas: React.FC<DiagramCanvasProps> = ({
           <div className="w-10 py-1 text-center font-mono text-[10px] font-bold text-slate-500 dark:text-slate-400 border-y border-slate-100 dark:border-slate-700 my-0.5 select-none">{Math.round(zoom * 100)}%</div>
           <button onClick={() => setZoom((z) => Math.max(0.1, z - 0.1))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md text-slate-600 dark:text-slate-300 transition-colors" title="Zoom Out (Ctrl -)"><ZoomOut size={20} /></button>
           <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md text-slate-600 dark:text-slate-300 transition-colors border-t border-slate-100 dark:border-slate-700 mt-1" title="Reset View (Ctrl 0)"><Maximize size={16} /></button>
-        </div>
-        <div className="flex flex-col gap-2 min-[500px]:hidden">
-          {setDbEngine && ( <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-slate-200 dark:border-slate-700 p-1.5 rounded-lg shadow-lg"> <div className="flex items-center gap-2 p-1.5"> <Server size={14} className="text-slate-500 dark:text-slate-400 shrink-0" /> <select value={dbEngine} onChange={(e) => setDbEngine(e.target.value as DbEngine)} className="bg-transparent border-none outline-none text-xs font-medium text-slate-700 dark:text-slate-300 focus:ring-0 cursor-pointer w-20"> {DB_ENGINES.map((engine) => ( <option key={engine.value} value={engine.value} className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200"> {engine.label} </option> ))} </select> </div> </div> )}
-          {setViewMode && ( <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-slate-200 dark:border-slate-700 p-1.5 rounded-lg shadow-lg flex flex-col gap-1"> <button onClick={() => setViewMode('logical')} className={`px-3 py-1.5 text-xs font-bold rounded transition-colors ${viewMode === 'logical' ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>Logical</button> <button onClick={() => setViewMode('physical')} className={`px-3 py-1.5 text-xs font-bold rounded transition-colors ${viewMode === 'physical' ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>Physical</button> </div> )}
+          {/* Mobile Config Button */}
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              // Position menu slightly above this button
+              const rect = e.currentTarget.getBoundingClientRect();
+              setRelMenu(null);
+              setCanvasMenu({ x: rect.left + 50, y: rect.top - 50 });
+            }} 
+            className="md:hidden p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md text-blue-600 dark:text-blue-400 transition-colors border-t border-slate-100 dark:border-slate-700 mt-1" 
+            title="Global Settings"
+          >
+            <Settings2 size={16} />
+          </button>
         </div>
       </div>
-      {onAddTable && ( <div className="md:hidden absolute bottom-6 right-6 z-40"> <button onClick={onAddTable} className="w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95" title="Add New Table"> <Plus size={28} /> </button> </div> )}
-      {selectedId && onDeleteSelected && ( <div className="md:hidden absolute bottom-24 right-6 z-40"> <button onClick={onDeleteSelected} className="w-14 h-14 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95" title="Delete Selected Table"> <Trash2 size={24} /> </button> </div> )}
+      
+      {/* Add Table Button (Mobile) - Added stopPropagation on pointerDown */}
+      {onAddTable && ( 
+        <div 
+          className="md:hidden absolute bottom-6 right-6 z-40"
+          onPointerDown={(e) => e.stopPropagation()} 
+        > 
+          <button onClick={onAddTable} className="w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95" title="Add New Table"> 
+            <Plus size={28} /> 
+          </button> 
+        </div> 
+      )}
+      
+      {/* Delete Selected Button (Mobile) - Added stopPropagation on pointerDown */}
+      {selectedId && onDeleteSelected && ( 
+        <div 
+          className="md:hidden absolute bottom-24 right-6 z-40"
+          onPointerDown={(e) => e.stopPropagation()} 
+        > 
+          <button onClick={onDeleteSelected} className="w-14 h-14 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95" title="Delete Selected Table"> 
+            <Trash2 size={24} /> 
+          </button> 
+        </div> 
+      )}
     </main>
   );
 };

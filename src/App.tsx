@@ -392,6 +392,7 @@ const App = () => {
             pan={pan}
             setPan={setPan}
             viewOptions={viewOptions}
+            setViewOptions={setViewOptions}
             viewMode={viewMode}
             setViewMode={setViewMode}
             theme={theme}

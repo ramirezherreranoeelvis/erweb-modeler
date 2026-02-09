@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Plus, Trash2, Eye, GitMerge, Edit3, Lock, Grid, Table2, List, Server, Hand, MousePointer2 } from 'lucide-react';
+import { Plus, Trash2, Eye, Edit3, Lock, Server } from 'lucide-react';
 import type { ViewOptions } from '../types';
 import type { DbEngine } from '../../utils/dbDataTypes';
 import { DB_ENGINES } from '../../utils/dbDataTypes';
@@ -73,34 +73,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </button>
 
-      {/* Database Engine Selector - Visible only between 500px and LG breakpoints */}
-      {/* Hidden below 500px (moved to floating), Hidden above LG (in toolbar) */}
-      {dbEngine && setDbEngine && (
-        <div className="hidden min-[500px]:block lg:hidden">
-           <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
-            <Server size={12} /> Database Engine
-          </h3>
-          <div className="flex items-center gap-2 px-2 py-1.5 bg-slate-100 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700/50">
-            <select
-              value={dbEngine}
-              onChange={(e) => setDbEngine(e.target.value as DbEngine)}
-              className="w-full bg-transparent border-none outline-none text-xs font-medium text-slate-700 dark:text-slate-300 focus:ring-0 cursor-pointer"
-            >
-              {DB_ENGINES.map((engine) => (
-                <option
-                  key={engine.value}
-                  value={engine.value}
-                  className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200"
-                >
-                  {engine.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="h-px bg-slate-200 dark:bg-slate-700/50 mt-4"></div>
-        </div>
-      )}
-
       {/* Desktop-only Buttons */}
       <div className="hidden md:grid grid-cols-2 gap-2">
         <button
@@ -130,7 +102,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <Eye size={12} /> View Options
           </h3>
           {Object.entries(viewOptions).map(([key, val]) => {
-            // REMOVED snapToGrid and interactionMode from checkbox list
+            // Filter out internal/visual configs, keep only data toggles
             if (
               key === 'lineStyle' ||
               key === 'gridStyle' ||
@@ -139,7 +111,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               key === 'interactionMode'
             )
               return null;
-            return (
+            return   (
               <label
                 key={key}
                 className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-blue-600 dark:hover:text-blue-400"
@@ -166,119 +138,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             );
           })}
         </div>
-
-        {/* Connection Mode */}
-        <div className="mt-4">
-          <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
-            <List size={12} /> Connection Mode
-          </h3>
-          <div className="flex bg-slate-100 dark:bg-slate-800/50 p-1 rounded">
-            <button
-              onClick={() => setViewOptions({ ...viewOptions, connectionMode: 'column' })}
-              className={`flex-1 py-1 text-[10px] font-bold rounded transition-all flex items-center justify-center gap-1 ${
-                viewOptions.connectionMode === 'column'
-                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-slate-300 shadow-sm'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-              }`}
-            >
-              <List size={10} /> Column
-            </button>
-            <button
-              onClick={() => setViewOptions({ ...viewOptions, connectionMode: 'table' })}
-              className={`flex-1 py-1 text-[10px] font-bold rounded transition-all flex items-center justify-center gap-1 ${
-                viewOptions.connectionMode === 'table'
-                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-slate-300 shadow-sm'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-              }`}
-            >
-              <Table2 size={10} /> Table
-            </button>
-          </div>
+        
+        {/* Helper Note */}
+        <div className="mt-8 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg text-[10px] text-slate-400 dark:text-slate-500 italic">
+           Tip: Right-click on the canvas to change Grid, Line Style, View Mode and Database Engine.
         </div>
 
-        {/* Grid Style Selector */}
-        <div className="mt-4">
-          <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
-            <Grid size={12} /> Grid Style
-          </h3>
-          <select
-            value={viewOptions.gridStyle}
-            onChange={(e) => setViewOptions({ ...viewOptions, gridStyle: e.target.value as any })}
-            className="w-full text-xs p-1.5 rounded bg-slate-50 dark:bg-[#151F33] text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500"
-          >
-            <option value="none">None</option>
-            <option value="dots">Dots</option>
-            <option value="squares">Squares</option>
-          </select>
-        </div>
-
-        {/* Line Style */}
-        <div className="mt-4">
-          <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
-            <GitMerge size={12} /> Line Style
-          </h3>
-          <div className="flex bg-slate-100 dark:bg-slate-800/50 p-1 rounded">
-            <button
-              onClick={() =>
-                setViewOptions({
-                  ...viewOptions,
-                  lineStyle: 'curved',
-                })
-              }
-              className={`flex-1 py-1 text-[10px] font-bold rounded transition-all ${
-                viewOptions.lineStyle === 'curved'
-                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-slate-300 shadow-sm'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-              }`}
-            >
-              Curved
-            </button>
-            <button
-              onClick={() =>
-                setViewOptions({
-                  ...viewOptions,
-                  lineStyle: 'orthogonal',
-                })
-              }
-              className={`flex-1 py-1 text-[10px] font-bold rounded transition-all ${
-                viewOptions.lineStyle === 'orthogonal'
-                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-slate-300 shadow-sm'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-              }`}
-            >
-              Quadratic
-            </button>
-          </div>
-        </div>
-
-        {/* Interaction Mode */}
-        <div className="mt-4">
-          <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
-            <MousePointer2 size={12} /> Cursor Mode
-          </h3>
-          <div className="flex bg-slate-100 dark:bg-slate-800/50 p-1 rounded">
-            <button
-              onClick={() => setViewOptions({ ...viewOptions, interactionMode: 'pan' })}
-              className={`flex-1 py-1 text-[10px] font-bold rounded transition-all flex items-center justify-center gap-1 ${
-                viewOptions.interactionMode === 'pan'
-                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-slate-300 shadow-sm'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-              }`}
-            >
-              <Hand size={10} /> Move
-            </button>
-            <button
-              onClick={() => setViewOptions({ ...viewOptions, interactionMode: 'select' })}
-              className={`flex-1 py-1 text-[10px] font-bold rounded transition-all flex items-center justify-center gap-1 ${
-                viewOptions.interactionMode === 'select'
-                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-slate-300 shadow-sm'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-              }`}
-            >
-              <MousePointer2 size={10} /> Select
-            </button>
-          </div>
-        </div>
       </div>
     </aside>
   );
