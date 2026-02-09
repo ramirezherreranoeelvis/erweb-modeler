@@ -1,4 +1,3 @@
-
 import { useState, useMemo, useEffect } from 'react';
 import type { ViewOptions, WarningData, Table, Relationship } from './ui/types';
 import { useSchemaData } from './ui/hooks/useSchemaData';
@@ -56,13 +55,13 @@ const App = () => {
     snapToGrid: true,
     gridStyle: 'none',
     lineStyle: 'orthogonal',
-    connectionMode: 'table', 
+    connectionMode: 'table',
     interactionMode: 'pan', // Default to Pan/Move mode
   });
 
   const [viewMode, setViewMode] = useState<string>('physical');
   const [dbEngine, setDbEngine] = useState<DbEngine>('mysql');
-  
+
   // Selection State
   const [selectedId, setSelectedId] = useState<string | null>(null); // Primary selection (for Properties Panel)
   const [selectedTableIds, setSelectedTableIds] = useState<Set<string>>(new Set()); // Multi-selection (for Visuals/Batch Actions)
@@ -90,7 +89,7 @@ const App = () => {
     viewTables,
     viewRelationships,
     actions,
-  } = useSchemaData(viewMode, dbEngine);
+  } = useSchemaData(dbEngine);
 
   const handleReset = () => {
     actions.resetSchema();
@@ -365,10 +364,10 @@ const App = () => {
             }}
             onDeleteTable={() => {
               if (selectedTableIds.size > 0) {
-                 selectedTableIds.forEach(id => actions.deleteTable(id));
-                 setSelectedTableIds(new Set());
+                selectedTableIds.forEach((id) => actions.deleteTable(id));
+                setSelectedTableIds(new Set());
               } else if (selectedId) {
-                 actions.deleteTable(selectedId);
+                actions.deleteTable(selectedId);
               }
               setSelectedId(null);
               setIsPropertiesPanelOpen(false);
@@ -376,8 +375,6 @@ const App = () => {
             selectedId={selectedId}
             viewOptions={viewOptions}
             setViewOptions={setViewOptions}
-            dbEngine={dbEngine}
-            setDbEngine={setDbEngine}
           />
 
           <DiagramCanvas
@@ -399,13 +396,11 @@ const App = () => {
             dbEngine={dbEngine}
             setDbEngine={setDbEngine}
             globalEditable={globalEditable}
-            
             // Selection Props
             selectedId={selectedId}
             setSelectedId={setSelectedId}
             selectedTableIds={selectedTableIds}
             setSelectedTableIds={setSelectedTableIds}
-
             setIsPropertiesPanelOpen={setIsPropertiesPanelOpen}
             setRelMenu={setRelMenu}
             setWarningModal={setWarningModal}
@@ -429,14 +424,14 @@ const App = () => {
               setIsPropertiesPanelOpen(true);
             }}
             onDeleteSelected={() => {
-                if (selectedTableIds.size > 0) {
-                    selectedTableIds.forEach(id => actions.deleteTable(id));
-                    setSelectedTableIds(new Set());
-                } else if (selectedId) {
-                    actions.deleteTable(selectedId);
-                }
-                setSelectedId(null);
-                setIsPropertiesPanelOpen(false);
+              if (selectedTableIds.size > 0) {
+                selectedTableIds.forEach((id) => actions.deleteTable(id));
+                setSelectedTableIds(new Set());
+              } else if (selectedId) {
+                actions.deleteTable(selectedId);
+              }
+              setSelectedId(null);
+              setIsPropertiesPanelOpen(false);
             }}
           />
 

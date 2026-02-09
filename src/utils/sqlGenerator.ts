@@ -1,4 +1,3 @@
-
 import type { Table, Relationship, Column } from '../ui/types';
 import type { DbEngine } from './dbDataTypes';
 import { generateId } from './geometry';
@@ -8,16 +7,15 @@ export const generateSQL = (
   tables: Table[],
   relationships: Relationship[],
   engine: DbEngine,
-  includeLayout: boolean = false
+  includeLayout: boolean = false,
 ): string => {
   const isMysql = engine === 'mysql';
   const isPostgres = engine === 'postgres';
   const isMssql = engine === 'mssql';
 
   // Quotes setup
-  const q = isMysql ? '`' : '"'; 
-  const openQ = isMysql ? '`' : (isMssql ? '[' : '"');
-  const closeQ = isMysql ? '`' : (isMssql ? ']' : '"');
+  const openQ = isMysql ? '`' : isMssql ? '[' : '"';
+  const closeQ = isMysql ? '`' : isMssql ? ']' : '"';
 
   // 1. Prepare Physical Schema (Resolve N:M)
   const physTables: Table[] = JSON.parse(JSON.stringify(tables)); // Deep copy
@@ -32,11 +30,11 @@ export const generateSQL = (
         const intersectName = rel.name
           ? rel.name.toUpperCase()
           : `${sourceTable.name}_${targetTable.name}`;
-        
+
         const intersectId = `virt_${rel.id}`;
-        
+
         const newColumns: Column[] = [];
-        
+
         const getColName = (baseId: string, defaultName: string) => {
           if (rel.virtualColNames && rel.virtualColNames[baseId]) {
             return rel.virtualColNames[baseId];
@@ -48,77 +46,77 @@ export const generateSQL = (
         const targetPks = targetTable.columns.filter((c) => c.isPk);
 
         sourcePks.forEach((pk) => {
-            const virtColId = `${intersectId}_src_${pk.id}`;
-            newColumns.push({
-                ...pk,
-                id: virtColId,
-                name: getColName(virtColId, pk.name),
-                isPk: true,
-                isFk: true,
-                isIdentity: false,
-                isNullable: false,
-                isUnique: false,
-                type: getCanonicalType(pk.type, engine)
-            });
+          const virtColId = `${intersectId}_src_${pk.id}`;
+          newColumns.push({
+            ...pk,
+            id: virtColId,
+            name: getColName(virtColId, pk.name),
+            isPk: true,
+            isFk: true,
+            isIdentity: false,
+            isNullable: false,
+            isUnique: false,
+            type: getCanonicalType(pk.type, engine),
+          });
         });
 
         targetPks.forEach((pk) => {
-            const virtColId = `${intersectId}_tgt_${pk.id}`;
-            let defaultName = pk.name;
-            if (newColumns.some(c => c.name.toLowerCase() === defaultName.toLowerCase())) {
-                defaultName = `${targetTable.name}_${pk.name}`;
-            }
-            
-            newColumns.push({
-                ...pk,
-                id: virtColId,
-                name: getColName(virtColId, defaultName),
-                isPk: true,
-                isFk: true,
-                isIdentity: false,
-                isNullable: false,
-                isUnique: false,
-                type: getCanonicalType(pk.type, engine)
-            });
+          const virtColId = `${intersectId}_tgt_${pk.id}`;
+          let defaultName = pk.name;
+          if (newColumns.some((c) => c.name.toLowerCase() === defaultName.toLowerCase())) {
+            defaultName = `${targetTable.name}_${pk.name}`;
+          }
+
+          newColumns.push({
+            ...pk,
+            id: virtColId,
+            name: getColName(virtColId, defaultName),
+            isPk: true,
+            isFk: true,
+            isIdentity: false,
+            isNullable: false,
+            isUnique: false,
+            type: getCanonicalType(pk.type, engine),
+          });
         });
 
         physTables.push({
-            id: intersectId,
-            name: intersectName,
-            logicalName: intersectName,
-            x: (sourceTable.x + targetTable.x) / 2, 
-            y: (sourceTable.y + targetTable.y) / 2,
-            columns: newColumns
+          id: intersectId,
+          name: intersectName,
+          logicalName: intersectName,
+          x: (sourceTable.x + targetTable.x) / 2,
+          y: (sourceTable.y + targetTable.y) / 2,
+          columns: newColumns,
         });
 
         sourcePks.forEach((pk) => {
-            const col = newColumns.find(c => c.id === `${intersectId}_src_${pk.id}`);
-            if (col) {
-                physRels.push({
-                    id: generateId(),
-                    name: `FK_${intersectName}_${sourceTable.name}`,
-                    fromTable: sourceTable.id,
-                    fromCol: pk.id,
-                    toTable: intersectId,
-                    toCol: col.id,
-                    type: '1:N'
-                });
-            }
+          const col = newColumns.find((c) => c.id === `${intersectId}_src_${pk.id}`);
+          if (col) {
+            physRels.push({
+              id: generateId(),
+              name: `FK_${intersectName}_${sourceTable.name}`,
+              fromTable: sourceTable.id,
+              fromCol: pk.id,
+              toTable: intersectId,
+              toCol: col.id,
+              type: '1:N',
+            });
+          }
         });
 
         targetPks.forEach((pk) => {
-            const col = newColumns.find(c => c.id === `${intersectId}_tgt_${pk.id}`);
-            if (col) {
-                physRels.push({
-                    id: generateId(),
-                    name: `FK_${intersectName}_${targetTable.name}`,
-                    fromTable: targetTable.id,
-                    fromCol: pk.id,
-                    toTable: intersectId,
-                    toCol: col.id,
-                    type: '1:N'
-                });
-            }
+          const col = newColumns.find((c) => c.id === `${intersectId}_tgt_${pk.id}`);
+          if (col) {
+            physRels.push({
+              id: generateId(),
+              name: `FK_${intersectName}_${targetTable.name}`,
+              fromTable: targetTable.id,
+              fromCol: pk.id,
+              toTable: intersectId,
+              toCol: col.id,
+              type: '1:N',
+            });
+          }
         });
       }
     } else {
@@ -139,38 +137,38 @@ export const generateSQL = (
   if (isPostgres) {
     let enumBlock = '';
     let hasEnums = false;
-    
-    physTables.forEach(t => {
-        t.columns.forEach(c => {
-            if (c.type.toUpperCase() === 'ENUM' && c.length) {
-                // Generate a unique type name: {table}_{col}_enum
-                const typeName = `${t.name.toLowerCase()}_${c.name.toLowerCase()}_enum`;
-                // Store mapped name for this specific column instance
-                postgresEnumTypes.set(`${t.id}:${c.id}`, typeName);
-                
-                if (!hasEnums) {
-                    enumBlock += `DO $$\nBEGIN\n`;
-                    hasEnums = true;
-                }
-                
-                enumBlock += `  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = '${typeName}') THEN\n`;
-                enumBlock += `    CREATE TYPE ${typeName} AS ENUM (${c.length});\n`;
-                enumBlock += `  END IF;\n`;
-            }
-        });
+
+    physTables.forEach((t) => {
+      t.columns.forEach((c) => {
+        if (c.type.toUpperCase() === 'ENUM' && c.length) {
+          // Generate a unique type name: {table}_{col}_enum
+          const typeName = `${t.name.toLowerCase()}_${c.name.toLowerCase()}_enum`;
+          // Store mapped name for this specific column instance
+          postgresEnumTypes.set(`${t.id}:${c.id}`, typeName);
+
+          if (!hasEnums) {
+            enumBlock += `DO $$\nBEGIN\n`;
+            hasEnums = true;
+          }
+
+          enumBlock += `  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = '${typeName}') THEN\n`;
+          enumBlock += `    CREATE TYPE ${typeName} AS ENUM (${c.length});\n`;
+          enumBlock += `  END IF;\n`;
+        }
+      });
     });
 
     if (hasEnums) {
-        enumBlock += `END $$;\n\n`;
-        sql += enumBlock;
+      enumBlock += `END $$;\n\n`;
+      sql += enumBlock;
     }
   }
 
   physTables.forEach((table) => {
     if (includeLayout) {
-        const x = Math.round(table.x);
-        const y = Math.round(table.y);
-        sql += `-- ERWEB_LAYOUT\n-- x: ${x}\n-- y: ${y}\n`;
+      const x = Math.round(table.x);
+      const y = Math.round(table.y);
+      sql += `-- ERWEB_LAYOUT\n-- x: ${x}\n-- y: ${y}\n`;
     }
 
     sql += `CREATE TABLE ${openQ}${table.name}${closeQ} (\n`;
@@ -180,53 +178,52 @@ export const generateSQL = (
 
     table.columns.forEach((col) => {
       let line = `  ${openQ}${col.name}${closeQ}`;
-      
+
       let type = col.type;
       const upperType = type.toUpperCase();
-      
+
       if (type.endsWith('()')) type = type.slice(0, -2);
-      
+
       // Handle Postgres ENUM substitution
       if (isPostgres && upperType === 'ENUM' && postgresEnumTypes.has(`${table.id}:${col.id}`)) {
-          const customType = postgresEnumTypes.get(`${table.id}:${col.id}`);
-          line += ` ${customType}`;
-      } 
+        const customType = postgresEnumTypes.get(`${table.id}:${col.id}`);
+        line += ` ${customType}`;
+      }
       // Handle MSSQL Simulated ENUM (Check Constraint)
       else if (isMssql && upperType === 'ENUM') {
-          // Fallback to VARCHAR for storage, append CHECK constraint
-          line += ` VARCHAR(255)`;
-          if (col.length && col.length.trim() !== '') {
-              line += ` CHECK (${openQ}${col.name}${closeQ} IN (${col.length}))`;
-          }
-      }
-      else {
-          // Standard type handling
-          if (col.length && !type.includes('(')) {
-            line += ` ${type}(${col.length})`;
-          } else {
-            line += ` ${type}`;
-          }
+        // Fallback to VARCHAR for storage, append CHECK constraint
+        line += ` VARCHAR(255)`;
+        if (col.length && col.length.trim() !== '') {
+          line += ` CHECK (${openQ}${col.name}${closeQ} IN (${col.length}))`;
+        }
+      } else {
+        // Standard type handling
+        if (col.length && !type.includes('(')) {
+          line += ` ${type}(${col.length})`;
+        } else {
+          line += ` ${type}`;
+        }
       }
 
       if (!col.isNullable) line += ` NOT NULL`;
-      
+
       // Default Value Support
       if (col.defaultValue && col.defaultValue.trim() !== '') {
-          line += ` DEFAULT ${col.defaultValue}`;
+        line += ` DEFAULT ${col.defaultValue}`;
       }
 
       if (col.isUnique) line += ` UNIQUE`;
-      
+
       if (col.isIdentity) {
         if (isMysql) {
-            line += ` AUTO_INCREMENT`;
+          line += ` AUTO_INCREMENT`;
         } else if (isMssql) {
-            line += ` IDENTITY(1,1)`;
+          line += ` IDENTITY(1,1)`;
         } else if (isPostgres) {
-            const isSerialType = ['SERIAL', 'BIGSERIAL', 'SMALLSERIAL'].includes(upperType);
-            if (!isSerialType) {
-                line += ` GENERATED BY DEFAULT AS IDENTITY`;
-            }
+          const isSerialType = ['SERIAL', 'BIGSERIAL', 'SMALLSERIAL'].includes(upperType);
+          if (!isSerialType) {
+            line += ` GENERATED BY DEFAULT AS IDENTITY`;
+          }
         }
       }
 
@@ -237,9 +234,11 @@ export const generateSQL = (
 
     if (pkCols.length > 0) {
       if (isMysql) {
-        lines.push(`  PRIMARY KEY (${pkCols.map(c => `${openQ}${c}${closeQ}`).join(', ')})`);
+        lines.push(`  PRIMARY KEY (${pkCols.map((c) => `${openQ}${c}${closeQ}`).join(', ')})`);
       } else {
-         lines.push(`  CONSTRAINT ${openQ}PK_${table.name}${closeQ} PRIMARY KEY (${pkCols.map(c => `${openQ}${c}${closeQ}`).join(', ')})`);
+        lines.push(
+          `  CONSTRAINT ${openQ}PK_${table.name}${closeQ} PRIMARY KEY (${pkCols.map((c) => `${openQ}${c}${closeQ}`).join(', ')})`,
+        );
       }
     }
 
@@ -249,21 +248,23 @@ export const generateSQL = (
   });
 
   physRels.forEach((rel) => {
-    const sourceTable = physTables.find(t => t.id === rel.fromTable);
-    const targetTable = physTables.find(t => t.id === rel.toTable);
-    
-    if (sourceTable && targetTable) {
-        const sourceCol = sourceTable.columns.find(c => c.id === rel.fromCol);
-        const targetCol = targetTable.columns.find(c => c.id === rel.toCol);
+    const sourceTable = physTables.find((t) => t.id === rel.fromTable);
+    const targetTable = physTables.find((t) => t.id === rel.toTable);
 
-        if (sourceCol && targetCol) {
-            const fkName = rel.name || `FK_${targetTable.name}_${sourceTable.name}_${Math.floor(Math.random()*1000)}`;
-            
-            sql += `ALTER TABLE ${openQ}${targetTable.name}${closeQ}\n`;
-            sql += `ADD CONSTRAINT ${openQ}${fkName}${closeQ} FOREIGN KEY (${openQ}${targetCol.name}${closeQ})\n`;
-            sql += `REFERENCES ${openQ}${sourceTable.name}${closeQ} (${openQ}${sourceCol.name}${closeQ});\n`;
-            sql += isMysql || isPostgres ? '\n' : 'GO\n\n';
-        }
+    if (sourceTable && targetTable) {
+      const sourceCol = sourceTable.columns.find((c) => c.id === rel.fromCol);
+      const targetCol = targetTable.columns.find((c) => c.id === rel.toCol);
+
+      if (sourceCol && targetCol) {
+        const fkName =
+          rel.name ||
+          `FK_${targetTable.name}_${sourceTable.name}_${Math.floor(Math.random() * 1000)}`;
+
+        sql += `ALTER TABLE ${openQ}${targetTable.name}${closeQ}\n`;
+        sql += `ADD CONSTRAINT ${openQ}${fkName}${closeQ} FOREIGN KEY (${openQ}${targetCol.name}${closeQ})\n`;
+        sql += `REFERENCES ${openQ}${sourceTable.name}${closeQ} (${openQ}${sourceCol.name}${closeQ});\n`;
+        sql += isMysql || isPostgres ? '\n' : 'GO\n\n';
+      }
     }
   });
 

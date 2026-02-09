@@ -1,4 +1,3 @@
-
 import { generateId } from './geometry';
 import type { Table, Column, Relationship } from '../ui/types';
 
@@ -11,20 +10,23 @@ const cleanSQL = (sql: string) => {
     .replace(/--(?!.*(ERWEB_LAYOUT|x:|y:)).*$/gm, '');
 
   // --- POSTGRES SPECIFIC CLEANING ---
-  
+
   // 1. Remove DO $$ ... $$ blocks (PL/PGSQL) - handled carefully in main parse now
   // We remove the wrapper but we might have extracted types before this in parseSQL
   cleaned = cleaned.replace(/DO\s*\$\$[\s\S]*?\$\$\s*;/gi, '');
 
   // 2. Remove CREATE FUNCTION ... $$ ... $$ LANGUAGE ...;
-  cleaned = cleaned.replace(/CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION[\s\S]*?\$\$[\s\S]*?\$\$\s*LANGUAGE\s+\w+\s*;/gi, '');
+  cleaned = cleaned.replace(
+    /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION[\s\S]*?\$\$[\s\S]*?\$\$\s*LANGUAGE\s+\w+\s*;/gi,
+    '',
+  );
 
   // 3. Remove CREATE TRIGGER
   cleaned = cleaned.replace(/CREATE\s+TRIGGER[\s\S]*?;/gi, '');
 
   // 4. Remove CREATE VIEW
   cleaned = cleaned.replace(/CREATE\s+(?:OR\s+REPLACE\s+)?VIEW[\s\S]*?;/gi, '');
-  
+
   // 5. Remove CREATE EXTENSION / SCHEMA / TYPE / INDEX
   // Note: We scan for types manually before cleaning
   cleaned = cleaned.replace(/CREATE\s+EXTENSION[\s\S]*?;/gi, '');
@@ -50,11 +52,11 @@ const splitColumns = (content: string) => {
 
   for (let i = 0; i < content.length; i++) {
     const char = content[i];
-    
+
     if (inQuote) {
       if (char === quoteChar) {
         // Handle escaped quotes '' inside SQL
-        if (content[i+1] === quoteChar) {
+        if (content[i + 1] === quoteChar) {
           i++;
         } else {
           inQuote = false;
@@ -84,7 +86,7 @@ export const parseSQL = (sqlInput: string): { tables: Table[]; relationships: Re
   // 0. PRE-PASS: Extract Postgres Custom ENUM Types
   // We do this on the raw input before 'cleanSQL' might strip DO blocks or CREATE TYPE
   const customTypes: Record<string, string> = {};
-  
+
   // Regex to find: CREATE TYPE name AS ENUM ('val1', 'val2');
   const typeRegex = /CREATE\s+TYPE\s+([^\s]+)\s+AS\s+ENUM\s*\(([^)]+)\)/gi;
   let match;
@@ -97,7 +99,7 @@ export const parseSQL = (sqlInput: string): { tables: Table[]; relationships: Re
 
   // 1. Clean SQL
   let cleanSql = cleanSQL(sqlInput);
-  
+
   // After extracting types, we can remove any remaining standalone CREATE TYPE statements to avoid parser confusion
   cleanSql = cleanSql.replace(/CREATE\s+TYPE[\s\S]*?;/gi, '');
 
@@ -186,24 +188,30 @@ export const parseSQL = (sqlInput: string): { tables: Table[]; relationships: Re
           const parts = line.split(/\s+/);
           if (parts.length >= 2) {
             const rawColName = parts[0];
-            
+
             // Skip Constraints / Indexes defined as "columns"
             if (
-              /^(INDEX|KEY|CONSTRAINT|UNIQUE|FOREIGN|FULLTEXT|CHECK|EXCLUDE)$/i.test(cleanIdentifier(rawColName))
+              /^(INDEX|KEY|CONSTRAINT|UNIQUE|FOREIGN|FULLTEXT|CHECK|EXCLUDE)$/i.test(
+                cleanIdentifier(rawColName),
+              )
             ) {
               return;
             }
 
             const colName = cleanIdentifier(rawColName);
             let rawType = parts[1];
-            
+
             // Handle types that might be keywords or look different
-            if (rawType.toUpperCase() === 'DOUBLE' && parts[2] && parts[2].toUpperCase() === 'PRECISION') {
-                rawType = 'DOUBLE PRECISION';
+            if (
+              rawType.toUpperCase() === 'DOUBLE' &&
+              parts[2] &&
+              parts[2].toUpperCase() === 'PRECISION'
+            ) {
+              rawType = 'DOUBLE PRECISION';
             }
 
             let dataType = cleanIdentifier(rawType);
-            
+
             // Parsing Length/Arguments
             let length = '';
             const lengthMatch = dataType.match(/\(([^)]+)\)/);
@@ -211,17 +219,17 @@ export const parseSQL = (sqlInput: string): { tables: Table[]; relationships: Re
               length = lengthMatch[1];
               dataType = dataType.replace(/\(.*\)/, '');
             } else if (parts[2] && parts[2].startsWith('(')) {
-               const parenContent = parts[2].match(/\(([^)]+)\)/);
-               if (parenContent) {
-                   length = parenContent[1];
-               }
+              const parenContent = parts[2].match(/\(([^)]+)\)/);
+              if (parenContent) {
+                length = parenContent[1];
+              }
             }
 
             // --- CUSTOM ENUM REPLACEMENT ---
             // If the type matches one of our found custom types, replace it with ENUM
             if (customTypes[dataType.toUpperCase()]) {
-                length = customTypes[dataType.toUpperCase()];
-                dataType = 'ENUM';
+              length = customTypes[dataType.toUpperCase()];
+              dataType = 'ENUM';
             }
 
             // Clean up type name
@@ -230,27 +238,29 @@ export const parseSQL = (sqlInput: string): { tables: Table[]; relationships: Re
             // --- MSSQL ENUM (CHECK CONSTRAINT) REPLACEMENT ---
             // Look for pattern: CHECK (colName IN ('val1', 'val2'))
             // We use the original line content to find this constraint
-            const mssqlEnumMatch = line.match(/CHECK\s*\(\s*(?:\[?[^\]]+\]?)\s+IN\s*\(([^)]+)\)\s*\)/i);
+            const mssqlEnumMatch = line.match(
+              /CHECK\s*\(\s*(?:\[?[^\]]+\]?)\s+IN\s*\(([^)]+)\)\s*\)/i,
+            );
             if (mssqlEnumMatch) {
-                dataType = 'ENUM';
-                length = mssqlEnumMatch[1].trim(); // 'A', 'B'
+              dataType = 'ENUM';
+              length = mssqlEnumMatch[1].trim(); // 'A', 'B'
             }
 
-            // Reconstruct rest of line
-            const typeIndex = line.toUpperCase().indexOf(dataType);
             // We search after the type (and length if processed separately, but regex above handles mostly)
-            let restOfLine = line.substring(line.toUpperCase().indexOf(parts[1].toUpperCase()) + parts[1].length);
+            let restOfLine = line.substring(
+              line.toUpperCase().indexOf(parts[1].toUpperCase()) + parts[1].length,
+            );
             // If we grabbed length separately (e.g. "DECIMAL (10,2)"), advance past it
             if (restOfLine.trim().startsWith('(')) {
-                restOfLine = restOfLine.substring(restOfLine.indexOf(')') + 1);
+              restOfLine = restOfLine.substring(restOfLine.indexOf(')') + 1);
             }
             restOfLine = restOfLine.toUpperCase();
 
             const isIdentity =
-              restOfLine.includes('AUTO_INCREMENT') || 
-              restOfLine.includes('IDENTITY') || 
+              restOfLine.includes('AUTO_INCREMENT') ||
+              restOfLine.includes('IDENTITY') ||
               ['SERIAL', 'BIGSERIAL', 'SMALLSERIAL'].includes(dataType);
-              
+
             const isNullable = !restOfLine.includes('NOT NULL');
             const isUnique = restOfLine.includes('UNIQUE');
             const inlinePk = restOfLine.includes('PRIMARY KEY');
@@ -261,7 +271,7 @@ export const parseSQL = (sqlInput: string): { tables: Table[]; relationships: Re
             // Captures: 1=Value with quotes, or Number/Keyword
             const defaultMatch = line.match(/DEFAULT\s+('?[^'\s,]+'?|[\w\d.-]+)/i);
             if (defaultMatch) {
-                defaultValue = defaultMatch[1];
+              defaultValue = defaultMatch[1];
             }
 
             if (inlinePk) pkColumns.push(colName);
@@ -323,48 +333,48 @@ export const parseSQL = (sqlInput: string): { tables: Table[]; relationships: Re
   // ... (Identical to existing logic, kept for brevity) ...
   // 1. Inline REFERENCES
   statements.forEach((stmt) => {
-      const createTableMatch = stmt.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([^\s(]+)/i);
-      if (createTableMatch) {
-          let rawTableName = createTableMatch[1];
-          if (rawTableName.includes('.')) rawTableName = rawTableName.split('.').pop()!;
-          const tableName = cleanIdentifier(rawTableName);
-          const childTable = tables.find(t => t.name === tableName);
-          
-          if (childTable) {
-              const body = stmt.substring(stmt.indexOf('(') + 1, stmt.lastIndexOf(')'));
-              const lines = splitColumns(body);
-              
-              lines.forEach(line => {
-                  const refMatch = line.match(/(\w+).*REFERENCES\s+([^\s(]+)\s*\(([^)]+)\)/i);
-                  if (refMatch) {
-                      const colName = cleanIdentifier(refMatch[1]);
-                      let parentTblRaw = refMatch[2];
-                      if (parentTblRaw.includes('.')) parentTblRaw = parentTblRaw.split('.').pop()!;
-                      const parentTblName = cleanIdentifier(parentTblRaw);
-                      const parentColName = cleanIdentifier(refMatch[3]);
-                      
-                      const parentTable = tables.find(t => t.name === parentTblName);
-                      const childCol = childTable.columns.find(c => c.name === colName);
-                      
-                      if (parentTable && childCol) {
-                          const parentCol = parentTable.columns.find(c => c.name === parentColName);
-                          if (parentCol) {
-                              childCol.isFk = true;
-                              relationships.push({
-                                  id: generateId(),
-                                  name: `FK_${childTable.name}_${parentTable.name}`,
-                                  fromTable: parentTable.id,
-                                  fromCol: parentCol.id,
-                                  toTable: childTable.id,
-                                  toCol: childCol.id,
-                                  type: '1:N'
-                              });
-                          }
-                      }
-                  }
-              });
+    const createTableMatch = stmt.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([^\s(]+)/i);
+    if (createTableMatch) {
+      let rawTableName = createTableMatch[1];
+      if (rawTableName.includes('.')) rawTableName = rawTableName.split('.').pop()!;
+      const tableName = cleanIdentifier(rawTableName);
+      const childTable = tables.find((t) => t.name === tableName);
+
+      if (childTable) {
+        const body = stmt.substring(stmt.indexOf('(') + 1, stmt.lastIndexOf(')'));
+        const lines = splitColumns(body);
+
+        lines.forEach((line) => {
+          const refMatch = line.match(/(\w+).*REFERENCES\s+([^\s(]+)\s*\(([^)]+)\)/i);
+          if (refMatch) {
+            const colName = cleanIdentifier(refMatch[1]);
+            let parentTblRaw = refMatch[2];
+            if (parentTblRaw.includes('.')) parentTblRaw = parentTblRaw.split('.').pop()!;
+            const parentTblName = cleanIdentifier(parentTblRaw);
+            const parentColName = cleanIdentifier(refMatch[3]);
+
+            const parentTable = tables.find((t) => t.name === parentTblName);
+            const childCol = childTable.columns.find((c) => c.name === colName);
+
+            if (parentTable && childCol) {
+              const parentCol = parentTable.columns.find((c) => c.name === parentColName);
+              if (parentCol) {
+                childCol.isFk = true;
+                relationships.push({
+                  id: generateId(),
+                  name: `FK_${childTable.name}_${parentTable.name}`,
+                  fromTable: parentTable.id,
+                  fromCol: parentCol.id,
+                  toTable: childTable.id,
+                  toCol: childCol.id,
+                  type: '1:N',
+                });
+              }
+            }
           }
+        });
       }
+    }
   });
 
   // 2. ALTER TABLE ... ADD FOREIGN KEY

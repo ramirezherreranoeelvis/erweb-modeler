@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Save, Menu, Server, Check, Plus, Trash2 } from 'lucide-react';
+import { Save, Menu, Server, Check } from 'lucide-react';
 import { DB_ENGINES } from '../../utils/dbDataTypes';
 import type { DbEngine } from '../../utils/dbDataTypes';
 
@@ -77,7 +76,7 @@ const RightContent = ({
           ))}
         </select>
       </div>
-      
+
       {/* View Mode Selector - Hidden on screens < 500px */}
       <div className="hidden max-[500px]:hidden items-center gap-1 bg-slate-100 dark:bg-slate-800/50 p-1 rounded-lg border border-slate-200 dark:border-slate-700/50 sm:flex">
         <button
@@ -106,7 +105,7 @@ const RightContent = ({
         </button>
       </div>
       <div className="h-6 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
-      
+
       {/* Import Button */}
       <button
         onClick={onImportClick}
@@ -166,7 +165,7 @@ const RightContent = ({
   );
 };
 
-const LeftContent = ({ onToggleSidebar, onReset }: any) => {
+const LeftContent = ({ onToggleSidebar }: any) => {
   return (
     <div className="flex items-center gap-3">
       <button

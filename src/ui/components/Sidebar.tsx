@@ -1,9 +1,6 @@
-
 import React from 'react';
-import { Plus, Trash2, Eye, Edit3, Lock, Server } from 'lucide-react';
+import { Plus, Trash2, Eye, Edit3, Lock } from 'lucide-react';
 import type { ViewOptions } from '../types';
-import type { DbEngine } from '../../utils/dbDataTypes';
-import { DB_ENGINES } from '../../utils/dbDataTypes';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -14,8 +11,6 @@ interface SidebarProps {
   selectedId: string | null;
   viewOptions: ViewOptions;
   setViewOptions: (options: ViewOptions) => void;
-  dbEngine?: DbEngine;
-  setDbEngine?: (engine: DbEngine) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -27,8 +22,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   selectedId,
   viewOptions,
   setViewOptions,
-  dbEngine,
-  setDbEngine,
 }) => {
   return (
     <aside
@@ -111,7 +104,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               key === 'interactionMode'
             )
               return null;
-            return   (
+            return (
               <label
                 key={key}
                 className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-blue-600 dark:hover:text-blue-400"
@@ -138,12 +131,11 @@ const Sidebar: React.FC<SidebarProps> = ({
             );
           })}
         </div>
-        
+
         {/* Helper Note */}
         <div className="mt-8 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg text-[10px] text-slate-400 dark:text-slate-500 italic">
-           Tip: Right-click on the canvas to change Grid, Line Style, View Mode and Database Engine.
+          Tip: Right-click on the canvas to change Grid, Line Style, View Mode and Database Engine.
         </div>
-
       </div>
     </aside>
   );
