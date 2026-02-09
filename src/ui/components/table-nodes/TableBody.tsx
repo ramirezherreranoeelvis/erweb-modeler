@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { CopyPlus } from 'lucide-react';
 import type { Table, ViewOptions, TempConnection } from '../../types';
@@ -11,6 +12,7 @@ interface TableBodyProps {
   isLocked: boolean;
   isSelected: boolean;
   isConnecting: boolean;
+  isExpanded?: boolean;
   tempConnection: TempConnection | null;
   dbEngine: DbEngine;
   onUpdateColumn: (tableId: string, colId: string, field: string, value: any) => void;
@@ -38,6 +40,7 @@ const TableBody: React.FC<TableBodyProps> = ({
   isLocked,
   isSelected,
   isConnecting,
+  isExpanded = false,
   tempConnection,
   dbEngine,
   onUpdateColumn,
@@ -101,6 +104,7 @@ const TableBody: React.FC<TableBodyProps> = ({
           isLocked={isLocked}
           isSelected={isSelected}
           isConnecting={isConnecting}
+          isExpanded={isExpanded}
           draggedIndex={draggedIndex}
           editingCell={editingCell}
           editValue={editValue}

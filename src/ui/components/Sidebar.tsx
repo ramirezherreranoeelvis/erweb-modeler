@@ -1,6 +1,9 @@
+
 import React from 'react';
-import { Plus, Trash2, Eye, GitMerge, Edit3, Lock, Grid, Table2, List } from 'lucide-react';
+import { Plus, Trash2, Eye, GitMerge, Edit3, Lock, Grid, Table2, List, Server, Hand, MousePointer2 } from 'lucide-react';
 import type { ViewOptions } from '../types';
+import type { DbEngine } from '../../utils/dbDataTypes';
+import { DB_ENGINES } from '../../utils/dbDataTypes';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -11,6 +14,8 @@ interface SidebarProps {
   selectedId: string | null;
   viewOptions: ViewOptions;
   setViewOptions: (options: ViewOptions) => void;
+  dbEngine?: DbEngine;
+  setDbEngine?: (engine: DbEngine) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -22,6 +27,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   selectedId,
   viewOptions,
   setViewOptions,
+  dbEngine,
+  setDbEngine,
 }) => {
   return (
     <aside
@@ -66,6 +73,34 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </button>
 
+      {/* Database Engine Selector - Visible only between 500px and LG breakpoints */}
+      {/* Hidden below 500px (moved to floating), Hidden above LG (in toolbar) */}
+      {dbEngine && setDbEngine && (
+        <div className="hidden min-[500px]:block lg:hidden">
+           <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+            <Server size={12} /> Database Engine
+          </h3>
+          <div className="flex items-center gap-2 px-2 py-1.5 bg-slate-100 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700/50">
+            <select
+              value={dbEngine}
+              onChange={(e) => setDbEngine(e.target.value as DbEngine)}
+              className="w-full bg-transparent border-none outline-none text-xs font-medium text-slate-700 dark:text-slate-300 focus:ring-0 cursor-pointer"
+            >
+              {DB_ENGINES.map((engine) => (
+                <option
+                  key={engine.value}
+                  value={engine.value}
+                  className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+                >
+                  {engine.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="h-px bg-slate-200 dark:bg-slate-700/50 mt-4"></div>
+        </div>
+      )}
+
       {/* Desktop-only Buttons */}
       <div className="hidden md:grid grid-cols-2 gap-2">
         <button
@@ -95,12 +130,13 @@ const Sidebar: React.FC<SidebarProps> = ({
             <Eye size={12} /> View Options
           </h3>
           {Object.entries(viewOptions).map(([key, val]) => {
-            // REMOVED snapToGrid from display
+            // REMOVED snapToGrid and interactionMode from checkbox list
             if (
               key === 'lineStyle' ||
               key === 'gridStyle' ||
               key === 'connectionMode' ||
-              key === 'snapToGrid'
+              key === 'snapToGrid' ||
+              key === 'interactionMode'
             )
               return null;
             return (
@@ -176,7 +212,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </select>
         </div>
 
-        {/* LinyStyle */}
+        {/* Line Style */}
         <div className="mt-4">
           <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
             <GitMerge size={12} /> Line Style
@@ -211,6 +247,35 @@ const Sidebar: React.FC<SidebarProps> = ({
               }`}
             >
               Quadratic
+            </button>
+          </div>
+        </div>
+
+        {/* Interaction Mode */}
+        <div className="mt-4">
+          <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+            <MousePointer2 size={12} /> Cursor Mode
+          </h3>
+          <div className="flex bg-slate-100 dark:bg-slate-800/50 p-1 rounded">
+            <button
+              onClick={() => setViewOptions({ ...viewOptions, interactionMode: 'pan' })}
+              className={`flex-1 py-1 text-[10px] font-bold rounded transition-all flex items-center justify-center gap-1 ${
+                viewOptions.interactionMode === 'pan'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-slate-300 shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+            >
+              <Hand size={10} /> Move
+            </button>
+            <button
+              onClick={() => setViewOptions({ ...viewOptions, interactionMode: 'select' })}
+              className={`flex-1 py-1 text-[10px] font-bold rounded transition-all flex items-center justify-center gap-1 ${
+                viewOptions.interactionMode === 'select'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-slate-300 shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+            >
+              <MousePointer2 size={10} /> Select
             </button>
           </div>
         </div>

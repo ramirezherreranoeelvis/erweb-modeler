@@ -7,6 +7,7 @@ export interface ViewOptions {
   showFk: boolean;
   showUnique: boolean;
   showIdentity: boolean;
+  showDefaultValue: boolean; // New option
   showCardinality: boolean;
   showCardinalityNumeric: boolean;
   showRelationshipNames: boolean;
@@ -14,5 +15,6 @@ export interface ViewOptions {
   snapToGrid: boolean;
   gridStyle: 'none' | 'dots' | 'squares';
   lineStyle: 'curved' | 'orthogonal';
-  connectionMode: 'column' | 'table'; // New option
+  connectionMode: 'column' | 'table';
+  interactionMode: 'pan' | 'select'; // New option for Cursor Mode
 }

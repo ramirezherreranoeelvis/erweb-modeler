@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Key, Trash2, GripVertical } from 'lucide-react';
 import type { Column, ViewOptions } from '../../types';
@@ -13,6 +14,7 @@ interface TableRowProps {
   isLocked: boolean;
   isSelected: boolean;
   isConnecting: boolean;
+  isExpanded?: boolean;
   draggedIndex: number | null;
   editingCell: { colId: string; field: 'name' | 'type' | 'length' } | null;
   editValue: string;
@@ -44,6 +46,7 @@ const TableRow: React.FC<TableRowProps> = ({
   isLocked,
   isSelected,
   isConnecting,
+  isExpanded = false,
   draggedIndex,
   editingCell,
   editValue,
@@ -72,13 +75,13 @@ const TableRow: React.FC<TableRowProps> = ({
       onDragStart={(e) => onDragStart(e, index)}
       onDragOver={onDragOver}
       onDrop={(e) => onDrop(e, index)}
-      className={`group/row relative flex items-center px-3 py-1 text-xs h-[28px] border-b border-transparent transition-colors ${
+      className={`group/row relative flex items-center px-3 py-1 text-xs border-b border-transparent transition-colors ${
         draggedIndex === index ? 'opacity-30' : ''
       } ${
         isValid
           ? 'hover:bg-blue-50 dark:hover:bg-slate-700 hover:border-blue-100 dark:hover:border-slate-600'
           : 'bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30'
-      }`}
+      } ${isExpanded ? 'h-auto' : 'h-[28px]'}`}
       onPointerUp={(e) => !col.isFk && onCompleteConnection(e, tableId, col.id)}
     >
       {/* Drag Grip - Visible on Hover only in Edit Mode */}
@@ -173,7 +176,7 @@ const TableRow: React.FC<TableRowProps> = ({
                   }}
                   onBlur={onEditSave}
                   onMouseDown={(e) => e.stopPropagation()}
-                  className="text-[9px] p-0 border border-blue-300 rounded outline-none bg-white dark:bg-slate-700 dark:text-white"
+                  className={`text-[9px] p-0 border border-blue-300 rounded outline-none bg-white dark:bg-slate-700 ${!isValid ? 'text-red-600 font-bold' : 'text-slate-900 dark:text-white'}`}
                 >
                   {!availableTypes.includes(editValue) && (
                     <option
@@ -184,12 +187,16 @@ const TableRow: React.FC<TableRowProps> = ({
                           : 'bg-red-100 text-red-700 font-bold'
                       }
                     >
-                      {editValue} {isValid ? '' : '(Invalid)'}
+                      {editValue.toLowerCase()} {isValid ? '' : '(Invalid)'}
                     </option>
                   )}
                   {availableTypes.map((t, idx) => (
-                    <option key={`${t}-${idx}`} value={t}>
-                      {t}
+                    <option 
+                        key={`${t}-${idx}`} 
+                        value={t}
+                        className="text-slate-900 dark:text-white bg-white dark:bg-slate-700 font-normal"
+                    >
+                      {t.toLowerCase()}
                     </option>
                   ))}
                 </select>
@@ -197,7 +204,7 @@ const TableRow: React.FC<TableRowProps> = ({
                 <span
                   className={`cursor-pointer ${isValid ? 'hover:text-blue-500 dark:hover:text-blue-400' : 'text-red-600 font-bold'}`}
                 >
-                  {col.type}
+                  {col.type.toUpperCase()}
                 </span>
               )}
             </div>
@@ -229,7 +236,8 @@ const TableRow: React.FC<TableRowProps> = ({
                         showLength
                           ? 'cursor-pointer hover:text-blue-400 dark:hover:text-blue-400'
                           : ''
-                      }`}
+                      } ${isExpanded ? 'whitespace-normal break-words w-full' : 'truncate max-w-[100px] inline-block align-bottom'}`}
+                      title={col.length}
                       onDoubleClick={(e) => {
                         e.stopPropagation();
                         if (showLength) {
@@ -245,6 +253,17 @@ const TableRow: React.FC<TableRowProps> = ({
             )}
           </>
         )}
+        
+        {/* NEW: Default Value View */}
+        {viewOptions.showDefaultValue && col.defaultValue && (
+           <span 
+             className={`ml-1 text-[8px] bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 px-1 rounded border border-teal-100 dark:border-teal-800 ${isExpanded ? 'whitespace-normal break-words max-w-[100px]' : 'truncate max-w-[40px]'}`}
+             title={`Default: ${col.defaultValue}`}
+           >
+             {col.defaultValue}
+           </span>
+        )}
+
         {viewOptions.showIdentity && col.isIdentity && (
           <span
             className="ml-1 text-[8px] bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1 rounded border border-purple-200 dark:border-purple-800 font-bold"

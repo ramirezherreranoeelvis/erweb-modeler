@@ -1,3 +1,4 @@
+
 import { useState, useMemo, useEffect } from 'react';
 import type { ViewOptions, WarningData, Table, Relationship } from './ui/types';
 import { useSchemaData } from './ui/hooks/useSchemaData';
@@ -10,6 +11,7 @@ import RelationshipMenu from './ui/components/RelationshipMenu';
 import ImportModal from './ui/components/ImportModal';
 import type { DbEngine } from './utils/dbDataTypes';
 import { generateSQL } from './utils/sqlGenerator';
+import { getCanonicalType } from './utils/dbDataTypes';
 
 const App = () => {
   // --- Theme State ---
@@ -46,6 +48,7 @@ const App = () => {
     showFk: true,
     showUnique: true,
     showIdentity: true,
+    showDefaultValue: false, // Default off to keep UI clean initially
     showCardinality: true,
     showCardinalityNumeric: false,
     showRelationshipNames: false,
@@ -53,12 +56,17 @@ const App = () => {
     snapToGrid: true,
     gridStyle: 'none',
     lineStyle: 'orthogonal',
-    connectionMode: 'table', // Default to table mode as requested
+    connectionMode: 'table', 
+    interactionMode: 'pan', // Default to Pan/Move mode
   });
 
   const [viewMode, setViewMode] = useState<string>('physical');
   const [dbEngine, setDbEngine] = useState<DbEngine>('mysql');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  
+  // Selection State
+  const [selectedId, setSelectedId] = useState<string | null>(null); // Primary selection (for Properties Panel)
+  const [selectedTableIds, setSelectedTableIds] = useState<Set<string>>(new Set()); // Multi-selection (for Visuals/Batch Actions)
+
   const [isPropertiesPanelOpen, setIsPropertiesPanelOpen] = useState(false);
   const [globalEditable, setGlobalEditable] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(300);
@@ -82,7 +90,14 @@ const App = () => {
     viewTables,
     viewRelationships,
     actions,
-  } = useSchemaData(viewMode);
+  } = useSchemaData(viewMode, dbEngine);
+
+  const handleReset = () => {
+    actions.resetSchema();
+    setSelectedId(null);
+    setSelectedTableIds(new Set());
+    setIsPropertiesPanelOpen(false);
+  };
 
   // --- Keyboard Shortcuts ---
   useEffect(() => {
@@ -92,13 +107,35 @@ const App = () => {
         return;
       }
 
+      // Ctrl + A (Select All)
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        const allIds = new Set(tables.map((t) => t.id));
+        setSelectedTableIds(allIds);
+        // Set the last table as the "primary" one for the panel
+        if (tables.length > 0) {
+          const lastId = tables[tables.length - 1].id;
+          setSelectedId(lastId);
+          setIsPropertiesPanelOpen(true);
+        }
+        return;
+      }
+
       // Delete / Backspace
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (relMenu) {
           e.preventDefault();
           actions.deleteRel(relMenu.id);
           setRelMenu(null);
+        } else if (selectedTableIds.size > 0) {
+          // Batch Delete
+          e.preventDefault();
+          selectedTableIds.forEach((id) => actions.deleteTable(id));
+          setSelectedTableIds(new Set());
+          setSelectedId(null);
+          setIsPropertiesPanelOpen(false);
         } else if (selectedId) {
+          // Fallback single delete
           e.preventDefault();
           actions.deleteTable(selectedId);
           setSelectedId(null);
@@ -110,6 +147,7 @@ const App = () => {
       if (e.key.toLowerCase() === 'n' && !e.ctrlKey && !e.metaKey) {
         const newId = actions.addTable(sidebarWidth, pan, zoom);
         setSelectedId(newId);
+        setSelectedTableIds(new Set([newId]));
         setIsPropertiesPanelOpen(true);
       }
 
@@ -133,10 +171,11 @@ const App = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedId, relMenu, actions, sidebarWidth, pan, zoom]);
+  }, [selectedId, selectedTableIds, relMenu, actions, sidebarWidth, pan, zoom, tables]);
 
   const handleConfigTable = (id: string) => {
     setSelectedId(id);
+    setSelectedTableIds(new Set([id]));
     setIsPropertiesPanelOpen(true);
   };
 
@@ -224,6 +263,9 @@ const App = () => {
                       counter++;
                     }
 
+                    // Automatically map types based on engine (e.g., Postgres: BIGSERIAL -> BIGINT)
+                    const targetType = getCanonicalType(sourceCol.type, dbEngine);
+
                     const newColId = Math.random().toString(36).substr(2, 9);
                     setTables((prev) =>
                       prev.map((t) => {
@@ -236,7 +278,7 @@ const App = () => {
                                 id: newColId,
                                 name: newName,
                                 logicalName: newLogicalName,
-                                type: sourceCol.type,
+                                type: targetType,
                                 length: sourceCol.length,
                                 isPk: false,
                                 isFk: true,
@@ -299,6 +341,7 @@ const App = () => {
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           onExport={handleExportSQL}
           onImportClick={() => setIsImportModalOpen(true)}
+          onReset={handleReset}
         />
 
         <div className="flex flex-1 overflow-hidden relative">
@@ -317,16 +360,24 @@ const App = () => {
               setIsSidebarOpen(false);
               const newId = actions.addTable(sidebarWidth, pan, zoom);
               setSelectedId(newId);
+              setSelectedTableIds(new Set([newId]));
               setIsPropertiesPanelOpen(true);
             }}
             onDeleteTable={() => {
-              actions.deleteTable(selectedId);
+              if (selectedTableIds.size > 0) {
+                 selectedTableIds.forEach(id => actions.deleteTable(id));
+                 setSelectedTableIds(new Set());
+              } else if (selectedId) {
+                 actions.deleteTable(selectedId);
+              }
               setSelectedId(null);
               setIsPropertiesPanelOpen(false);
             }}
             selectedId={selectedId}
             viewOptions={viewOptions}
             setViewOptions={setViewOptions}
+            dbEngine={dbEngine}
+            setDbEngine={setDbEngine}
           />
 
           <DiagramCanvas
@@ -342,14 +393,21 @@ const App = () => {
             setPan={setPan}
             viewOptions={viewOptions}
             viewMode={viewMode}
+            setViewMode={setViewMode}
             theme={theme}
             dbEngine={dbEngine}
+            setDbEngine={setDbEngine}
             globalEditable={globalEditable}
+            
+            // Selection Props
+            selectedId={selectedId}
             setSelectedId={setSelectedId}
+            selectedTableIds={selectedTableIds}
+            setSelectedTableIds={setSelectedTableIds}
+
             setIsPropertiesPanelOpen={setIsPropertiesPanelOpen}
             setRelMenu={setRelMenu}
             setWarningModal={setWarningModal}
-            selectedId={selectedId}
             relMenuId={relMenu ? relMenu.id : null}
             onApplyConnection={actions.applyConnection}
             onAddColumn={actions.addColumn}
@@ -366,14 +424,18 @@ const App = () => {
             onAddTable={() => {
               const newId = actions.addTable(0, pan, zoom);
               setSelectedId(newId);
+              setSelectedTableIds(new Set([newId]));
               setIsPropertiesPanelOpen(true);
             }}
             onDeleteSelected={() => {
-              if (selectedId) {
-                actions.deleteTable(selectedId);
+                if (selectedTableIds.size > 0) {
+                    selectedTableIds.forEach(id => actions.deleteTable(id));
+                    setSelectedTableIds(new Set());
+                } else if (selectedId) {
+                    actions.deleteTable(selectedId);
+                }
                 setSelectedId(null);
                 setIsPropertiesPanelOpen(false);
-              }
             }}
           />
 

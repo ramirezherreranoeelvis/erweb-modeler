@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Settings, X, Lock, Key, Trash2, GripVertical, AlertTriangle } from 'lucide-react';
 import type { Table, Relationship } from '../types';
@@ -65,17 +66,21 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         <h2 className="font-bold text-slate-700 dark:text-slate-100 text-sm flex items-center gap-2">
           <Settings size={16} /> Table Properties
         </h2>
-        <button
-          onClick={onClose}
-          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-        >
-          <X size={16} />
-        </button>
+        <div className="flex items-center gap-3">
+            <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+            >
+            <X size={16} />
+            </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        <div className="grid grid-cols-2 gap-4">
-          <label className="block">
+        
+        {/* Table Names Section - Flex Wrap allows side-by-side or stacked depending on width */}
+        <div className="flex flex-wrap gap-4">
+          <label className="flex-1 min-w-[130px]">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
               Physical Name
             </span>
@@ -88,7 +93,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               className="mt-1 block w-full rounded border-slate-300 dark:border-slate-600 shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-xs py-2 px-2 border font-mono"
             />
           </label>
-          <label className="block">
+          <label className="flex-1 min-w-[130px]">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
               Logical Name
             </span>
@@ -122,17 +127,13 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               const showLength = shouldShowLength(col.type);
               const isValid = isTypeValid(col.type, dbEngine);
               const isLenReq = isLengthRequired(col.type);
-              // It is missing if required AND empty
               const isLenMissing = isLenReq && (!col.length || col.length.trim() === '');
-
-              // Check if the exact string exists in options
               const isExactMatch = availableTypes.includes(col.type);
+              const isEnum = col.type.toUpperCase() === 'ENUM' || col.type.toUpperCase() === 'SET';
 
               return (
                 <div
                   key={col.id}
-                  draggable
-                  onDragStart={() => setDraggedIndex(index)}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={() => {
                     if (draggedIndex !== null && draggedIndex !== index) {
@@ -149,13 +150,25 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   }`}
                 >
                   {/* Drag Handle */}
-                  <div className="absolute left-1 top-1/2 -translate-y-1/2 cursor-grab text-slate-300 dark:text-slate-500 hover:text-slate-500 dark:hover:text-slate-300 p-1">
+                  <div 
+                    draggable
+                    onDragStart={(e) => {
+                        setDraggedIndex(index);
+                        const row = e.currentTarget.parentElement;
+                        if (row) {
+                            e.dataTransfer.setDragImage(row, 0, 0);
+                        }
+                    }}
+                    className="absolute left-1 top-3 cursor-grab text-slate-300 dark:text-slate-500 hover:text-slate-500 dark:hover:text-slate-300 p-1 z-10"
+                  >
                     <GripVertical size={12} />
                   </div>
 
                   <div className="pl-4">
-                    <div className="flex gap-2 mb-2">
-                      <div className="flex-1">
+                    {/* --- COLUMN NAMES ROW --- */}
+                    {/* flex-wrap ensures they sit next to each other unless space is tight */}
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      <div className="flex-1 min-w-[120px]">
                         <label className="text-[9px] text-slate-400 font-bold mb-0.5 block">
                           Physical
                         </label>
@@ -167,7 +180,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                           className="w-full text-xs p-1.5 border border-slate-300 dark:border-slate-600 rounded font-mono text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 focus:border-blue-400 outline-none"
                         />
                       </div>
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-[120px]">
                         <label className="text-[9px] text-slate-400 font-bold mb-0.5 block">
                           Logical
                         </label>
@@ -181,162 +194,199 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex gap-2 items-end">
-                      <div className="w-24 shrink-0 relative">
-                        <label className="text-[9px] text-slate-400 font-bold mb-0.5 flex items-center gap-1">
-                          Type 
-                          {isLinkedFk && <Lock size={8} className="text-amber-500" />}
-                          {!isValid && <AlertTriangle size={8} className="text-red-500" />}
-                        </label>
-                        <select
-                          value={col.type}
-                          disabled={isLinkedFk}
-                          onChange={(e) =>
-                            onUpdateColumn(selectedTable.id, col.id, 'type', e.target.value)
-                          }
-                          className={`w-full text-[10px] py-1.5 px-0.5 border rounded outline-none ${
-                            isLinkedFk
-                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border-slate-300 dark:border-slate-600'
-                              : isValid 
-                                ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600'
-                                : 'bg-red-50 dark:bg-slate-800 text-red-600 border-red-400 font-bold'
-                          }`}
-                        >
-                          {/* If the current type is not exactly in the list, add it as a preservation option */}
-                          {!isExactMatch && (
-                            <option 
-                              value={col.type} 
-                              className={isValid ? 'bg-slate-100 text-slate-600' : 'bg-red-100 text-red-700 font-bold'}
-                            >
-                              {col.type} {isValid ? '' : '(Invalid)'}
-                            </option>
-                          )}
-                          
-                          {availableTypes.map((t, idx) => (
-                            <option key={`${t}-${idx}`} value={t}>
-                              {t}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {showLength && (
-                        <div className="w-16 shrink-0 relative">
-                          {/* Invisible spacer to maintain vertical alignment with the 'Type' label */}
-                          <div className="h-[14px] mb-0.5"></div>
-                          
-                          <div className="flex items-center justify-center">
-                            <span className="text-slate-400 font-bold text-[10px] mr-1">(</span>
-                            <input
-                              placeholder={col.type.includes('CHAR') ? '255' : ''}
-                              value={col.length}
-                              disabled={isLinkedFk}
-                              onChange={(e) =>
-                                onUpdateColumn(selectedTable.id, col.id, 'length', e.target.value)
-                              }
-                              className={`w-full min-w-0 text-[10px] py-1.5 px-0.5 text-center border rounded outline-none focus:ring-1 focus:ring-blue-500 transition-colors
-                                ${isLinkedFk 
-                                  ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border-slate-300 dark:border-slate-600' 
-                                  : isLenMissing
-                                    ? 'bg-red-50 dark:bg-red-900/20 border-red-500 text-red-900 dark:text-red-100 placeholder-red-300'
-                                    : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 focus:border-blue-500'
-                                }`}
-                            />
-                            <span className="text-slate-400 font-bold text-[10px] ml-1">)</span>
-                          </div>
+                    {/* --- CONTROLS SECTION --- */}
+                    <div className="flex flex-wrap items-end gap-x-2 gap-y-3">
+                      
+                      {/* TYPE + LENGTH GROUP */}
+                      {/* If ENUM, we allow wrapping so the input can take full width on next line if needed */}
+                      <div className={`flex items-end gap-1 flex-[2] min-w-[130px] ${isEnum ? 'flex-wrap' : ''}`}>
+                        {/* Type Selector */}
+                        <div className={`relative ${isEnum ? 'w-full' : 'flex-grow'}`}>
+                          <label className="text-[9px] text-slate-400 font-bold mb-0.5 flex items-center gap-1">
+                            Type 
+                            {isLinkedFk && <Lock size={8} className="text-amber-500" />}
+                            {!isValid && <AlertTriangle size={8} className="text-red-500" />}
+                          </label>
+                          <select
+                            value={col.type}
+                            disabled={isLinkedFk}
+                            onChange={(e) =>
+                              onUpdateColumn(selectedTable.id, col.id, 'type', e.target.value)
+                            }
+                            className={`w-full text-[10px] py-1.5 px-0.5 border rounded outline-none ${
+                              isLinkedFk
+                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border-slate-300 dark:border-slate-600'
+                                : isValid 
+                                  ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600'
+                                  : 'bg-red-50 dark:bg-slate-800 text-red-600 border-red-400 font-bold'
+                            }`}
+                          >
+                            {!isExactMatch && (
+                              <option 
+                                value={col.type} 
+                                className={isValid ? 'bg-slate-100 text-slate-600' : 'bg-red-100 text-red-700 font-bold'}
+                              >
+                                {col.type.toLowerCase()} {isValid ? '' : '(Invalid)'}
+                              </option>
+                            )}
+                            
+                            {availableTypes.map((t, idx) => (
+                              <option 
+                                key={`${t}-${idx}`} 
+                                value={t}
+                                className="text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 font-normal"
+                              >
+                                {t.toLowerCase()}
+                              </option>
+                            ))}
+                          </select>
                         </div>
-                      )}
 
-                      <div className="flex flex-1 justify-end items-center gap-1.5 pb-0.5">
-                        <label
-                          className={`flex flex-col items-center group/chk ${col.isIdentity || col.isPk ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
-                          title="Not Null"
-                        >
-                          <span className="text-[8px] font-bold text-slate-400 mb-0.5 group-hover/chk:text-blue-500">
-                            NN
-                          </span>
-                          <input
-                            type="checkbox"
-                            checked={!col.isNullable}
-                            disabled={col.isIdentity || col.isPk}
-                            onChange={(e) =>
-                              onUpdateColumn(
-                                selectedTable.id,
-                                col.id,
-                                'isNullable',
-                                !e.target.checked,
-                              )
-                            }
-                            className={`w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-0 dark:bg-slate-700 ${col.isIdentity || col.isPk ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800' : 'cursor-pointer'}`}
-                          />
-                        </label>
-
-                        <label
-                          className="flex flex-col items-center cursor-pointer group/chk"
-                          title="Unique"
-                        >
-                          <span className="text-[8px] font-bold text-slate-400 mb-0.5 group-hover/chk:text-green-600">
-                            UQ
-                          </span>
-                          <input
-                            type="checkbox"
-                            checked={col.isUnique}
-                            onChange={(e) =>
-                              onUpdateColumn(selectedTable.id, col.id, 'isUnique', e.target.checked)
-                            }
-                            className="w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-600 text-green-600 focus:ring-0 cursor-pointer dark:bg-slate-700"
-                          />
-                        </label>
-
-                        <label
-                          className={`flex flex-col items-center group/chk ${col.isNullable || col.isFk ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
-                          title={
-                            col.isFk
-                              ? `Foreign Keys cannot be ${dbEngine === 'mysql' ? 'Auto Increment' : 'Identity'}`
-                              : (dbEngine === 'mysql' ? 'Auto Increment' : 'Identity')
-                          }
-                        >
-                          <span className="text-[8px] font-bold text-slate-400 mb-0.5 group-hover/chk:text-purple-600">
-                            {dbEngine === 'mysql' ? 'AI' : 'ID'}
-                          </span>
-                          <input
-                            type="checkbox"
-                            checked={col.isIdentity}
-                            disabled={col.isNullable || col.isFk}
-                            onChange={(e) =>
-                              onUpdateColumn(
-                                selectedTable.id,
-                                col.id,
-                                'isIdentity',
-                                e.target.checked,
-                              )
-                            }
-                            className={`w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-600 text-purple-600 focus:ring-0 dark:bg-slate-700 ${col.isNullable || col.isFk ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800' : 'cursor-pointer'}`}
-                          />
-                        </label>
-
-                        <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-0.5"></div>
-
-                        <button
-                          onClick={() =>
-                            !col.isNullable &&
-                            onUpdateColumn(selectedTable.id, col.id, 'isPk', !col.isPk)
-                          }
-                          disabled={col.isNullable}
-                          className={`flex flex-col items-center justify-center w-8 h-8 rounded border transition-all ${col.isPk ? 'bg-amber-100 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700 text-amber-600 dark:text-amber-500' : col.isNullable ? 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-300 dark:text-slate-600 cursor-not-allowed' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-300 dark:text-slate-500 hover:border-amber-300 hover:text-amber-400'}`}
-                          title="Primary Key"
-                        >
-                          <Key size={14} fill={col.isPk ? 'currentColor' : 'none'} />
-                          <span className="text-[7px] font-bold mt-0.5">PK</span>
-                        </button>
-
-                        <button
-                          onClick={() => onDeleteColumn(selectedTable.id, col.id)}
-                          className="flex flex-col items-center justify-center w-8 h-8 rounded border bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-200 dark:hover:border-red-800 hover:text-red-500 transition-all"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        {/* Length/Argument Input */}
+                        {showLength && (
+                          <div className={`relative shrink-0 ${isEnum ? 'w-full mt-1' : 'w-12'}`}>
+                             {/* Only show spacer if NOT enum (since enum goes to new line or full width) */}
+                            {!isEnum && <div className="h-[14px] mb-0.5"></div>}
+                            <div className="flex items-center justify-center w-full">
+                              <span className="text-slate-400 font-bold text-[10px] -mr-0.5 relative z-10">(</span>
+                              <input
+                                placeholder={col.type.toUpperCase().includes('CHAR') ? '255' : (isEnum ? "'VAL1','VAL2'" : '')}
+                                value={col.length}
+                                disabled={isLinkedFk}
+                                title={col.length} // Tooltip for full value
+                                onChange={(e) =>
+                                  onUpdateColumn(selectedTable.id, col.id, 'length', e.target.value)
+                                }
+                                className={`w-full text-[10px] py-1.5 px-0.5 border rounded outline-none focus:ring-1 focus:ring-blue-500 transition-colors
+                                  ${isEnum ? 'text-left px-1' : 'text-center'}
+                                  ${isLinkedFk 
+                                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border-slate-300 dark:border-slate-600' 
+                                    : isLenMissing
+                                      ? 'bg-red-50 dark:bg-red-900/20 border-red-500 text-red-900 dark:text-red-100 placeholder-red-300'
+                                      : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 focus:border-blue-500'
+                                  }`}
+                              />
+                              <span className="text-slate-400 font-bold text-[10px] -ml-0.5 relative z-10">)</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
+
+                      {/* Default Value Input */}
+                       <div className="flex-1 min-w-[80px]">
+                        <label className="text-[9px] text-slate-400 font-bold mb-0.5 block truncate" title="Default Value">
+                          Default
+                        </label>
+                        <input
+                          value={col.defaultValue || ''}
+                          placeholder={col.isIdentity ? '(Auto)' : 'NULL'}
+                          onChange={(e) =>
+                            onUpdateColumn(selectedTable.id, col.id, 'defaultValue', e.target.value)
+                          }
+                          className="w-full text-[10px] py-1.5 px-2 border border-slate-300 dark:border-slate-600 rounded text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 focus:border-blue-400 outline-none placeholder-slate-300 dark:placeholder-slate-600"
+                        />
+                      </div>
+
+                      {/* CONSTRAINTS & ACTIONS GROUP */}
+                      <div className="flex gap-2 items-center justify-end pt-1">
+                        
+                        {/* Checkboxes */}
+                        <div className="flex gap-2">
+                           <label
+                            className={`flex flex-col items-center group/chk ${col.isIdentity || col.isPk ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                            title="Not Null"
+                          >
+                            <span className="text-[8px] font-bold text-slate-400 mb-0.5 group-hover/chk:text-blue-500">
+                              NN
+                            </span>
+                            <input
+                              type="checkbox"
+                              checked={!col.isNullable}
+                              disabled={col.isIdentity || col.isPk}
+                              onChange={(e) =>
+                                onUpdateColumn(
+                                  selectedTable.id,
+                                  col.id,
+                                  'isNullable',
+                                  !e.target.checked,
+                                )
+                              }
+                              className={`w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-0 dark:bg-slate-700 ${col.isIdentity || col.isPk ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800' : 'cursor-pointer'}`}
+                            />
+                          </label>
+
+                          <label
+                            className="flex flex-col items-center cursor-pointer group/chk"
+                            title="Unique"
+                          >
+                            <span className="text-[8px] font-bold text-slate-400 mb-0.5 group-hover/chk:text-green-600">
+                              UQ
+                            </span>
+                            <input
+                              type="checkbox"
+                              checked={col.isUnique}
+                              onChange={(e) =>
+                                onUpdateColumn(selectedTable.id, col.id, 'isUnique', e.target.checked)
+                              }
+                              className="w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-600 text-green-600 focus:ring-0 cursor-pointer dark:bg-slate-700"
+                            />
+                          </label>
+
+                          <label
+                            className={`flex flex-col items-center group/chk ${col.isNullable || col.isFk ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                            title={
+                              col.isFk
+                                ? `Foreign Keys cannot be ${dbEngine === 'mysql' ? 'Auto Increment' : 'Identity'}`
+                                : (dbEngine === 'mysql' ? 'Auto Increment' : 'Identity')
+                            }
+                          >
+                            <span className="text-[8px] font-bold text-slate-400 mb-0.5 group-hover/chk:text-purple-600">
+                              {dbEngine === 'mysql' ? 'AI' : 'ID'}
+                            </span>
+                            <input
+                              type="checkbox"
+                              checked={col.isIdentity}
+                              disabled={col.isNullable || col.isFk}
+                              onChange={(e) =>
+                                onUpdateColumn(
+                                  selectedTable.id,
+                                  col.id,
+                                  'isIdentity',
+                                  e.target.checked,
+                                )
+                              }
+                              className={`w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-600 text-purple-600 focus:ring-0 dark:bg-slate-700 ${col.isNullable || col.isFk ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800' : 'cursor-pointer'}`}
+                            />
+                          </label>
+                        </div>
+
+                        {/* Divider */}
+                        <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+
+                        {/* Actions */}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() =>
+                              !col.isNullable &&
+                              onUpdateColumn(selectedTable.id, col.id, 'isPk', !col.isPk)
+                            }
+                            disabled={col.isNullable}
+                            className={`flex items-center justify-center gap-1 px-2 h-7 rounded border transition-all ${col.isPk ? 'bg-amber-100 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700 text-amber-600 dark:text-amber-500' : col.isNullable ? 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-300 dark:text-slate-600 cursor-not-allowed' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-300 dark:text-slate-500 hover:border-amber-300 hover:text-amber-400'}`}
+                            title="Primary Key"
+                          >
+                            <Key size={12} fill={col.isPk ? 'currentColor' : 'none'} />
+                            <span className="text-[9px] font-bold">PK</span>
+                          </button>
+
+                          <button
+                            onClick={() => onDeleteColumn(selectedTable.id, col.id)}
+                            className="flex items-center justify-center w-7 h-7 rounded border bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-200 dark:hover:border-red-800 hover:text-red-500 transition-all"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+
                     </div>
                   </div>
                 </div>

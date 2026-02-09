@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { Save, Menu, Server, Check } from 'lucide-react';
+import { Save, Menu, Server, Check, Plus, Trash2 } from 'lucide-react';
 import { DB_ENGINES } from '../../utils/dbDataTypes';
 import type { DbEngine } from '../../utils/dbDataTypes';
 
@@ -11,6 +12,7 @@ interface ToolbarProps {
   onToggleSidebar: () => void;
   onExport: (includeLayout: boolean) => void;
   onImportClick: () => void;
+  onReset: () => void;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -21,6 +23,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onToggleSidebar,
   onExport,
   onImportClick,
+  onReset,
 }) => {
   const className =
     'dark:bg-slate-800- border-slate-200- dark:border-slate-700- glass-panel border-b border-slate-200 dark:border-white/10 shrink-0 bg-white/70 dark:bg-slate-900/70';
@@ -28,10 +31,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
     <header
       className={`${className} h-16 border-b flex items-center justify-between px-4 shadow-sm z-10 shrink-0`}
     >
-      <LeftContent onToggleSidebar={onToggleSidebar} />
-      {/* center */}
-      {/* <CenterContent /> */}
-      {/* right */}
+      <LeftContent onToggleSidebar={onToggleSidebar} onReset={onReset} />
       <RightContent
         viewMode={viewMode}
         setViewMode={setViewMode}
@@ -58,7 +58,7 @@ const RightContent = ({
   const [includeLayout, setIncludeLayout] = useState(true);
   return (
     <div className="flex items-center gap-2 sm:gap-3">
-      {/* DB Engine Selector */}
+      {/* DB Engine Selector - Hidden on LG and below */}
       <div className="hidden lg:flex items-center gap-2 px-2 py-1 bg-slate-100 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700/50 max-w-[120px] sm:max-w-none">
         <Server size={14} className="text-slate-500 dark:text-slate-400 shrink-0" />
         <select
@@ -77,8 +77,9 @@ const RightContent = ({
           ))}
         </select>
       </div>
-      {/* diagrama fisico y logico selector */}
-      <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/50 p-1 rounded-lg border border-slate-200 dark:border-slate-700/50">
+      
+      {/* View Mode Selector - Hidden on screens < 500px */}
+      <div className="hidden max-[500px]:hidden items-center gap-1 bg-slate-100 dark:bg-slate-800/50 p-1 rounded-lg border border-slate-200 dark:border-slate-700/50 sm:flex">
         <button
           onClick={() => setViewMode('logical')}
           className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded shadow-sm transition-all cursor-pointer
@@ -105,7 +106,8 @@ const RightContent = ({
         </button>
       </div>
       <div className="h-6 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
-      {/* buttons import export */}
+      
+      {/* Import Button */}
       <button
         onClick={onImportClick}
         className="font-inter flex items-center gap-2 px-3 py-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded shadow text-sm font-bold transition-colors border border-slate-200 dark:border-slate-700"
@@ -115,6 +117,7 @@ const RightContent = ({
         <span className="hidden md:inline">Import</span>
       </button>
 
+      {/* Export Button */}
       <div className="relative">
         <button
           onClick={() => setShowExportMenu(!showExportMenu)}
@@ -163,29 +166,7 @@ const RightContent = ({
   );
 };
 
-// const CenterContent = () => {
-//   return (
-//     <div className="flex-1 max-w-xl mx-8 relative hidden md:block group">
-//       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-//         <span className="material-icons-round text-slate-400 dark:text-slate-500 group-focus-within:text-primary transition-colors">
-//           search
-//         </span>
-//       </div>
-//       <input
-//         className="placeholder:text-transparent xl:placeholder-slate-500 text-slate-900 block w-full pl-10 pr-3 py-2 border-none rounded-xl leading-5 bg-slate-100 dark:bg-slate-800/50 dark:text-slate-100  focus:outline-none focus:ring-2 focus:ring-primary/50 sm:text-sm transition-all shadow-inner"
-//         placeholder="Search tables, fields, or type a command..."
-//         type="text"
-//       />
-//       <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-//         <span className="text-xs text-slate-400 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5">
-//           Ctrl+K
-//         </span>
-//       </div>
-//     </div>
-//   );
-// };
-
-const LeftContent = ({ onToggleSidebar }: any) => {
+const LeftContent = ({ onToggleSidebar, onReset }: any) => {
   return (
     <div className="flex items-center gap-3">
       <button
@@ -194,15 +175,12 @@ const LeftContent = ({ onToggleSidebar }: any) => {
       >
         <Menu size={20} />
       </button>
-      <div className="size-8 rounded-lg bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-neon">
+      <div className="size-8 rounded-lg bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-neon shrink-0">
         <span className="material-icons-round text-white text-lg p-1.5">schema</span>
       </div>
-      <div>
-        <h1 className="font-bold text-base text-slate-700 dark:text-slate-100 leading-tight hidden sm:block">
+      <div className="hidden sm:block">
+        <h1 className="font-bold text-base text-slate-700 dark:text-slate-100 leading-tight">
           ERWeb Modeler
-        </h1>
-        <h1 className="font-bold text-base text-slate-700 dark:text-slate-100 leading-tight sm:hidden">
-          ERWeb
         </h1>
       </div>
     </div>

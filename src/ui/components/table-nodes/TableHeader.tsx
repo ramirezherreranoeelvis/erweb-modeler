@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { Settings, Edit3 } from 'lucide-react';
+import { Settings, Edit3, Maximize2, Minimize2 } from 'lucide-react';
 import type { Table } from '../../types';
 
 interface TableHeaderProps {
@@ -8,6 +9,8 @@ interface TableHeaderProps {
   viewMode: string;
   isSelected: boolean;
   isLocked: boolean;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
   onUpdateTable: (id: string, field: string, value: any) => void;
   onConfig: () => void;
 }
@@ -18,6 +21,8 @@ const TableHeader: React.FC<TableHeaderProps> = ({
   viewMode,
   isSelected,
   isLocked,
+  isExpanded = false,
+  onToggleExpand,
   onUpdateTable,
   onConfig,
 }) => {
@@ -108,9 +113,27 @@ const TableHeader: React.FC<TableHeaderProps> = ({
 
       <div
         className={`flex items-center gap-1 transition-opacity duration-200 ${
-          isSelected ? 'opacity-100' : 'opacity-0 group-hover/table:opacity-100'
+          isSelected || isExpanded ? 'opacity-100' : 'opacity-0 group-hover/table:opacity-100'
         }`}
       >
+        {onToggleExpand && (
+            <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+                e.stopPropagation();
+                onToggleExpand();
+            }}
+            className={`p-1.5 rounded-md transition-colors ${
+                isExpanded 
+                ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' 
+                : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+            }`}
+            title={isExpanded ? "Collapse Table" : "Expand Table"}
+            >
+            {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </button>
+        )}
+
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {

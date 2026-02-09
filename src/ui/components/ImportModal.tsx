@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { FileInput, AlertCircle, Check, Clipboard, Upload } from 'lucide-react';
 import { parseSQL } from '../../utils/sqlParser';
@@ -37,7 +38,7 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImport, db
       onImport(tables, relationships);
     } catch (e) {
       console.error(e);
-      setError('Failed to parse SQL. Please ensure it is valid syntax (MySQL or SQL Server).');
+      setError('Failed to parse SQL. Please ensure it is valid syntax.');
     }
   };
 
@@ -54,6 +55,13 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImport, db
       };
       reader.readAsText(file);
     }
+  };
+
+  // Helper to display current engine name nicely
+  const getEngineName = () => {
+      if (dbEngine === 'postgres') return 'PostgreSQL';
+      if (dbEngine === 'mssql') return 'SQL Server';
+      return 'MySQL';
   };
 
   return (
@@ -107,16 +115,16 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImport, db
         <div className="p-6 flex-1 flex flex-col gap-4 overflow-hidden">
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-3 text-xs text-slate-600 dark:text-slate-300">
             <strong className="block mb-1 text-blue-700 dark:text-blue-300">
-              Target Engine: {dbEngine === 'mssql' ? 'SQL Server' : 'MySQL'}
+              Target Engine: {getEngineName()}
             </strong>
-            Supports <code>CREATE TABLE</code> with standard syntax, brackets <code>[]</code>,
-            backticks <code>`</code>, and <code>GO</code> separators.
+            Supports <code>CREATE TABLE</code> with standard syntax. Handles brackets <code>[]</code>,
+            backticks <code>`</code>, double quotes <code>"</code>, and <code>GO</code> separators.
           </div>
 
           {activeTab === 'paste' ? (
             <textarea
               className="flex-1 w-full p-4 font-mono text-xs bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-              placeholder={`CREATE TABLE [dbo].[Users] (\n  [id] INT IDENTITY(1,1) PRIMARY KEY,\n  [name] NVARCHAR(50)\n);\nGO`}
+              placeholder={`CREATE TABLE "users" (\n  "id" SERIAL PRIMARY KEY,\n  "name" VARCHAR(50)\n);`}
               value={sqlContent}
               onChange={(e) => {
                 setSqlContent(e.target.value);
