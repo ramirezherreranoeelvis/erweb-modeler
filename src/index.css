@@ -1,0 +1,78 @@
+@import "tailwindcss";
+@theme {
+      --color-primary: #3b82f6;
+      --color-secondary: #8b5cf6;
+      --color-background-light: #f1f5f9;
+      --color-background-dark: #0b1120;
+      --color-surface-dark: #1e293b;
+      --shadow-neon: 0 0 10px rgba(0, 255, 255, 0.5);
+      --shadow-neon-purple: 0 0 10px rgba(139, 92, 246, 0.5);
+      --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      --font-inter: "Inter", sans-serif;
+}
+
+.text-lg {
+      font-size: 1.125rem; /* 18px */
+      line-height: 1.75rem; /* 28px */
+}
+.text-sm {
+      font-size: 0.875rem; /* 14px */
+      line-height: 1.25rem; /* 20px */
+}
+.text-xs {
+      font-size: 0.75rem; /* 12px */
+      line-height: 1rem; /* 16px */
+}
+::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+}
+::-webkit-scrollbar-track {
+      background: transparent;
+}
+::-webkit-scrollbar-thumb {
+      background: #475569;
+      border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+      background: #64748b;
+}
+.glass-panel {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.dark .glass-panel {
+      background: rgba(15, 23, 42, 0.65);
+      border-color: rgba(255, 255, 255, 0.08);
+}
+.bg-grid {
+      background-size: 40px 40px;
+      background-image:
+            linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+}
+.light-mode-grid {
+      background-image:
+            linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+}
+select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 0.5rem center;
+      background-repeat: no-repeat;
+      background-size: 1.5em 1.5em;
+}
+input[type="checkbox"] {
+      cursor: pointer;
+      appearance: none;
+      border-radius: 0.25rem;
+      transition-property: all;
+      transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+      transition-duration: 150ms;
+}
+input[type="checkbox"]:checked {
+      background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
+}
