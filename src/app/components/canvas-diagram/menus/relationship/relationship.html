@@ -1,0 +1,227 @@
+<div
+    class="fixed bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 p-1 flex flex-col gap-1 z-50 animate-[zoomIn_0.1s_ease-out] w-80"
+    [style.left.px]="x()"
+    [style.top.px]="y()"
+    (pointerdown)="$event.stopPropagation()"
+    (click)="$event.stopPropagation()"
+>
+    <div
+        class="text-[10px] font-bold text-slate-400 px-2 py-1 border-b border-slate-100 dark:border-slate-700 uppercase tracking-wider"
+    >
+        Relationship
+    </div>
+
+    <div class="px-2 py-1">
+        <input
+            type="text"
+            class="w-full text-xs p-1 border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded font-mono text-slate-700 dark:text-slate-300 focus:border-blue-400 outline-none"
+            [ngModel]="currentName()"
+            (ngModelChange)="updateName.emit($event)"
+            placeholder="Relationship Name"
+            autoFocus
+        />
+    </div>
+
+    <div class="h-px bg-slate-100 dark:bg-slate-700 my-0.5"></div>
+
+    <div class="text-[10px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wider">
+        Cardinality
+    </div>
+
+    <div class="flex items-center gap-2 px-2 pb-2">
+        <!-- Left / Source Selector -->
+        <div class="flex-1 flex flex-col gap-1">
+            <label class="text-[9px] text-slate-500 font-bold text-center">Origin (From)</label>
+            <select
+                [ngModel]="leftSide()"
+                (ngModelChange)="handleUpdate($event, rightSide())"
+                class="w-full text-xs p-1.5 border border-slate-300 dark:border-slate-600 rounded bg-slate-50 dark:bg-slate-700 text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500"
+            >
+                <option value="1">One (1)</option>
+                <option value="0..1">Zero or One (0..1)</option>
+                <option value="N">Many (N:M)</option>
+            </select>
+        </div>
+
+        <div class="pt-4 text-xs font-bold text-slate-400">TO</div>
+
+        <!-- Right / Target Selector -->
+        <div class="flex-1 flex flex-col gap-1">
+            <label class="text-[9px] text-slate-500 font-bold text-center">Target (To)</label>
+            <select
+                [ngModel]="rightSide()"
+                (ngModelChange)="handleUpdate(leftSide(), $event)"
+                class="w-full text-xs p-1.5 border border-slate-300 dark:border-slate-600 rounded bg-slate-50 dark:bg-slate-700 text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500"
+            >
+                <option value="1">One (1)</option>
+                <option value="0..1">Zero or One (0..1)</option>
+                <option value="1..N">One or Many (1..N)</option>
+                <option value="0..N">Zero or One or Many (0..N)</option>
+                <option value="N">Many (N:M)</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="h-px bg-slate-100 dark:bg-slate-700 my-0.5"></div>
+
+    <div class="text-[10px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wider">
+        Routing
+    </div>
+
+    <div class="flex gap-1 px-2 py-1">
+        <!-- Buttons for Routing -->
+        <button
+            (click)="setRouting.emit({ source: 'right', target: 'right' })"
+            class="flex-1 flex items-center justify-center py-1.5 bg-slate-50 dark:bg-slate-700/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-600 transition-all"
+        >
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+                <line x1="5" x2="19" y1="12" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+            </svg>
+        </button>
+        <button
+            (click)="setRouting.emit({ source: 'right', target: 'left' })"
+            class="flex-1 flex items-center justify-center py-1.5 bg-slate-50 dark:bg-slate-700/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-600 transition-all"
+        >
+            <div class="flex -space-x-1">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <line x1="5" x2="19" y1="12" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                </svg>
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <line x1="19" x2="5" y1="12" y2="12" />
+                    <polyline points="12 19 5 12 12 5" />
+                </svg>
+            </div>
+        </button>
+        <button
+            (click)="setRouting.emit({ source: 'left', target: 'left' })"
+            class="flex-1 flex items-center justify-center py-1.5 bg-slate-50 dark:bg-slate-700/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-600 transition-all"
+        >
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+                <line x1="19" x2="5" y1="12" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+            </svg>
+        </button>
+        <button
+            (click)="setRouting.emit({ source: 'left', target: 'right' })"
+            class="flex-1 flex items-center justify-center py-1.5 bg-slate-50 dark:bg-slate-700/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-600 transition-all"
+        >
+            <div class="flex -space-x-1">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <line x1="19" x2="5" y1="12" y2="12" />
+                    <polyline points="12 19 5 12 12 5" />
+                </svg>
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <line x1="5" x2="19" y1="12" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                </svg>
+            </div>
+        </button>
+    </div>
+
+    <div class="h-px bg-slate-100 dark:bg-slate-700 my-0.5"></div>
+
+    <button
+        (click)="resetRouting.emit()"
+        class="flex items-center gap-2 px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-xs text-slate-700 dark:text-slate-300 rounded text-left transition-colors"
+    >
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+        >
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+        </svg>
+        <span>Reset to Auto</span>
+    </button>
+
+    <button
+        (click)="deleteRel.emit()"
+        class="flex items-center gap-2 px-3 py-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 text-xs text-red-600 dark:text-red-400 rounded text-left font-medium transition-colors"
+    >
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+        >
+            <path d="M3 6h18" />
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+        </svg>
+        Delete Relationship
+    </button>
+</div>

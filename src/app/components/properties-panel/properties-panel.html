@@ -1,0 +1,568 @@
+@if (selectedTable() !== null && selectedTable() !== undefined) {
+    <aside
+        class="bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 flex flex-col shadow-xl z-20 shrink-0 transition-none h-full relative w-full md:w-auto"
+        [style.width]="mobileMode() ? '100%' : width() + 'px'"
+    >
+        <!-- Resize Handle - Hidden on Mobile -->
+        <div
+            class="hidden md:block absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-blue-400 dark:hover:bg-blue-600 transition-colors z-50 -ml-0.5"
+            (pointerdown)="startResize($event)"
+            (pointermove)="handleResize($event)"
+            (pointerup)="stopResize($event)"
+        ></div>
+
+        <div
+            class="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex justify-between items-center"
+        >
+            <h2
+                class="font-bold text-slate-700 dark:text-slate-100 text-sm flex items-center gap-2"
+            >
+                <!-- Settings Icon -->
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path
+                        d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+                    />
+                    <circle cx="12" cy="12" r="3" />
+                </svg>
+                Table Properties
+            </h2>
+            <div class="flex items-center gap-3">
+                <button
+                    (click)="close.emit()"
+                    class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                >
+                    <!-- X Icon -->
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <line x1="18" x2="6" y1="6" y2="18" />
+                        <line x1="6" x2="18" y1="6" y2="18" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-4 space-y-6">
+            <!-- Table Names Section -->
+            <div class="flex flex-wrap gap-4">
+                <label class="flex-1 min-w-[130px]">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                        Physical Name
+                    </span>
+                    <input
+                        type="text"
+                        [ngModel]="selectedTable()!.name"
+                        (ngModelChange)="
+                            updateTable.emit({
+                                id: selectedTable()!.id,
+                                field: 'name',
+                                value: $event.toUpperCase(),
+                            })
+                        "
+                        class="mt-1 block w-full rounded border-slate-300 dark:border-slate-600 shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-xs py-2 px-2 border font-mono"
+                    />
+                </label>
+                <label class="flex-1 min-w-[130px]">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                        Logical Name
+                    </span>
+                    <input
+                        type="text"
+                        [ngModel]="selectedTable()!.logicalName"
+                        (ngModelChange)="
+                            updateTable.emit({
+                                id: selectedTable()!.id,
+                                field: 'logicalName',
+                                value: $event,
+                            })
+                        "
+                        class="mt-1 block w-full rounded border-slate-300 dark:border-slate-600 shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-xs py-2 px-2 border"
+                    />
+                </label>
+            </div>
+
+            <div>
+                <div
+                    class="flex justify-between items-center mb-2 border-b border-slate-100 dark:border-slate-700 pb-2"
+                >
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                        Columns
+                    </span>
+                    <button
+                        (click)="addColumn.emit(selectedTable()!.id)"
+                        class="text-[10px] bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 px-3 py-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 font-bold border border-blue-100 dark:border-blue-800 transition-colors"
+                    >
+                        + ADD COLUMN
+                    </button>
+                </div>
+
+                <div class="space-y-3">
+                    @for (col of selectedTable()!.columns; track col.id; let idx = $index) {
+                        @let isLinkedFk = checkIsLinkedFk(col.id);
+                        @let isValid = checkIsTypeValid(col.type);
+                        @let showLength = checkShowLength(col.type);
+                        @let isLenReq = checkLengthRequired(col.type);
+                        @let isLenMissing = isLenReq && (!col.length || col.length.trim() === '');
+                        @let isExactMatch = availableTypes().includes(col.type);
+                        @let isEnum =
+                            col.type.toUpperCase() === 'ENUM' || col.type.toUpperCase() === 'SET';
+
+                        <div
+                            (dragover)="$event.preventDefault()"
+                            (drop)="handleDrop($event, idx)"
+                            class="p-3 rounded border group relative hover:shadow-sm transition-all"
+                            [class.opacity-50]="draggedIndex() === idx"
+                            [class]="
+                                isValid
+                                    ? 'bg-slate-50 dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-600'
+                                    : 'bg-red-50 dark:bg-red-900/10 border-red-300 dark:border-red-700'
+                            "
+                        >
+                            <!-- Drag Handle -->
+                            <div
+                                draggable="true"
+                                (dragstart)="handleDragStart($event, idx)"
+                                class="absolute left-1 top-3 cursor-grab text-slate-300 dark:text-slate-500 hover:text-slate-500 dark:hover:text-slate-300 p-1 z-10"
+                            >
+                                <!-- GripVertical -->
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="12"
+                                    height="12"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                >
+                                    <circle cx="9" cy="12" r="1" />
+                                    <circle cx="9" cy="5" r="1" />
+                                    <circle cx="9" cy="19" r="1" />
+                                    <circle cx="15" cy="12" r="1" />
+                                    <circle cx="15" cy="5" r="1" />
+                                    <circle cx="15" cy="19" r="1" />
+                                </svg>
+                            </div>
+
+                            <div class="pl-4">
+                                <!-- COLUMN NAMES ROW -->
+                                <div class="flex flex-wrap gap-2 mb-2">
+                                    <div class="flex-1 min-w-[120px]">
+                                        <label
+                                            class="text-[9px] text-slate-400 font-bold mb-0.5 block"
+                                        >
+                                            Physical
+                                        </label>
+                                        <input
+                                            [ngModel]="col.name"
+                                            (ngModelChange)="
+                                                handleColUpdate(col.id, 'name', $event)
+                                            "
+                                            class="w-full text-xs p-1.5 border border-slate-300 dark:border-slate-600 rounded font-mono text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 focus:border-blue-400 outline-none"
+                                        />
+                                    </div>
+                                    <div class="flex-1 min-w-[120px]">
+                                        <label
+                                            class="text-[9px] text-slate-400 font-bold mb-0.5 block"
+                                        >
+                                            Logical
+                                        </label>
+                                        <input
+                                            [ngModel]="col.logicalName"
+                                            (ngModelChange)="
+                                                handleColUpdate(col.id, 'logicalName', $event)
+                                            "
+                                            class="w-full text-xs p-1.5 border border-slate-300 dark:border-slate-600 rounded text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 focus:border-blue-400 outline-none"
+                                        />
+                                    </div>
+                                </div>
+
+                                <!-- CONTROLS SECTION -->
+                                <div class="flex flex-wrap items-end gap-x-2 gap-y-3">
+                                    <!-- TYPE + LENGTH GROUP -->
+                                    <div
+                                        class="flex items-end gap-1 flex-2 min-w-[130px]"
+                                        [class.flex-wrap]="isEnum"
+                                    >
+                                        <!-- Type Selector -->
+                                        <div class="relative grow" [class.w-full]="isEnum">
+                                            <label
+                                                class="text-[9px] text-slate-400 font-bold mb-0.5 flex items-center gap-1"
+                                            >
+                                                Type
+                                                @if (isLinkedFk) {
+                                                    <!-- Lock -->
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        width="8"
+                                                        height="8"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        stroke-width="2"
+                                                        stroke-linecap="round"
+                                                        stroke-linejoin="round"
+                                                        class="text-amber-500"
+                                                    >
+                                                        <rect
+                                                            x="3"
+                                                            y="11"
+                                                            width="18"
+                                                            height="11"
+                                                            rx="2"
+                                                            ry="2"
+                                                        />
+                                                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                                                    </svg>
+                                                }
+                                                @if (!isValid) {
+                                                    <!-- Alert Triangle -->
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        width="8"
+                                                        height="8"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        stroke-width="2"
+                                                        stroke-linecap="round"
+                                                        stroke-linejoin="round"
+                                                        class="text-red-500"
+                                                    >
+                                                        <path
+                                                            d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"
+                                                        />
+                                                        <line x1="12" x2="12" y1="9" y2="13" />
+                                                        <line x1="12" x2="12.01" y1="17" y2="17" />
+                                                    </svg>
+                                                }
+                                            </label>
+                                            <select
+                                                [ngModel]="col.type"
+                                                [disabled]="isLinkedFk"
+                                                (ngModelChange)="handleTypeChange(col.id, $event)"
+                                                class="w-full text-[10px] py-1.5 px-0.5 border rounded outline-none"
+                                                [class]="
+                                                    isLinkedFk
+                                                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border-slate-300 dark:border-slate-600'
+                                                        : isValid
+                                                          ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600'
+                                                          : 'bg-red-50 dark:bg-slate-800 text-red-600 border-red-400 font-bold'
+                                                "
+                                            >
+                                                <!-- If current type not in list (custom or just not matched string-wise) -->
+                                                @if (!isExactMatch) {
+                                                    <option
+                                                        [value]="col.type"
+                                                        [class]="
+                                                            isValid
+                                                                ? 'bg-slate-100 text-slate-600'
+                                                                : 'bg-red-100 text-red-700 font-bold'
+                                                        "
+                                                    >
+                                                        {{ col.type.toLowerCase() }}
+                                                        {{ isValid ? '' : '(Invalid)' }}
+                                                    </option>
+                                                }
+                                                @for (t of availableTypes(); track t) {
+                                                    <option
+                                                        [value]="t"
+                                                        class="text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 font-normal"
+                                                    >
+                                                        {{ t.toLowerCase() }}
+                                                    </option>
+                                                }
+                                            </select>
+                                        </div>
+
+                                        <!-- Length/Argument Input -->
+                                        @if (showLength) {
+                                            <div
+                                                class="relative shrink-0"
+                                                [class.w-full]="isEnum"
+                                                [class.mt-1]="isEnum"
+                                                [class.w-12]="!isEnum"
+                                            >
+                                                @if (!isEnum) {
+                                                    <div class="h-[14px] mb-0.5"></div>
+                                                }
+                                                <div
+                                                    class="flex items-center justify-center w-full"
+                                                >
+                                                    <span
+                                                        class="text-slate-400 font-bold text-[10px] -mr-0.5 relative z-10"
+                                                        >(</span
+                                                    >
+                                                    <input
+                                                        [placeholder]="getPlaceholder(col.type)"
+                                                        [ngModel]="col.length"
+                                                        [disabled]="isLinkedFk"
+                                                        [title]="col.length"
+                                                        (ngModelChange)="
+                                                            handleColUpdate(
+                                                                col.id,
+                                                                'length',
+                                                                $event
+                                                            )
+                                                        "
+                                                        class="w-full text-[10px] py-1.5 px-0.5 border rounded outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+                                                        [class]="
+                                                            isEnum
+                                                                ? 'text-left px-1'
+                                                                : 'text-center'
+                                                        "
+                                                        [class]="
+                                                            isLinkedFk
+                                                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border-slate-300 dark:border-slate-600'
+                                                                : isLenMissing
+                                                                  ? 'bg-red-50 dark:bg-red-900/20 border-red-500 text-red-900 dark:text-red-100 placeholder-red-300'
+                                                                  : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 focus:border-blue-500'
+                                                        "
+                                                    />
+                                                    <span
+                                                        class="text-slate-400 font-bold text-[10px] -ml-0.5 relative z-10"
+                                                        >)</span
+                                                    >
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <!-- Default Value Input -->
+                                    <div class="flex-1 min-w-[80px]">
+                                        <label
+                                            class="text-[9px] text-slate-400 font-bold mb-0.5 block truncate"
+                                            title="Default Value"
+                                        >
+                                            Default
+                                        </label>
+                                        <input
+                                            [ngModel]="col.defaultValue || ''"
+                                            [placeholder]="col.isIdentity ? '(Auto)' : 'NULL'"
+                                            (ngModelChange)="
+                                                handleColUpdate(col.id, 'defaultValue', $event)
+                                            "
+                                            class="w-full text-[10px] py-1.5 px-2 border border-slate-300 dark:border-slate-600 rounded text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 focus:border-blue-400 outline-none placeholder-slate-300 dark:placeholder-slate-600"
+                                        />
+                                    </div>
+
+                                    <!-- CONSTRAINTS & ACTIONS GROUP -->
+                                    <div class="flex gap-2 items-center justify-end pt-1">
+                                        <!-- Checkboxes -->
+                                        <div class="flex gap-2">
+                                            <label
+                                                class="flex flex-col items-center group/chk"
+                                                [class.cursor-not-allowed]="
+                                                    col.isIdentity || col.isPk
+                                                "
+                                                [class.opacity-50]="col.isIdentity || col.isPk"
+                                                [class.cursor-pointer]="
+                                                    !col.isIdentity && !col.isPk
+                                                "
+                                                title="Not Null"
+                                            >
+                                                <span
+                                                    class="text-[8px] font-bold text-slate-400 mb-0.5 group-hover/chk:text-blue-500"
+                                                >
+                                                    NN
+                                                </span>
+                                                <input
+                                                    type="checkbox"
+                                                    [checked]="!col.isNullable"
+                                                    [disabled]="col.isIdentity || col.isPk"
+                                                    (change)="
+                                                        handleColUpdate(
+                                                            col.id,
+                                                            'isNullable',
+                                                            !$any($event.target).checked
+                                                        )
+                                                    "
+                                                    class="w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-0 dark:bg-slate-700"
+                                                    [class.cursor-not-allowed]="
+                                                        col.isIdentity || col.isPk
+                                                    "
+                                                    [class.bg-slate-100]="
+                                                        col.isIdentity || col.isPk
+                                                    "
+                                                    [class.dark:bg-slate-800]="
+                                                        col.isIdentity || col.isPk
+                                                    "
+                                                    [class.cursor-pointer]="
+                                                        !col.isIdentity && !col.isPk
+                                                    "
+                                                />
+                                            </label>
+
+                                            <label
+                                                class="flex flex-col items-center cursor-pointer group/chk"
+                                                title="Unique"
+                                            >
+                                                <span
+                                                    class="text-[8px] font-bold text-slate-400 mb-0.5 group-hover/chk:text-green-600"
+                                                >
+                                                    UQ
+                                                </span>
+                                                <input
+                                                    type="checkbox"
+                                                    [checked]="col.isUnique"
+                                                    (change)="
+                                                        handleColUpdate(
+                                                            col.id,
+                                                            'isUnique',
+                                                            $any($event.target).checked
+                                                        )
+                                                    "
+                                                    class="w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-600 text-green-600 focus:ring-0 cursor-pointer dark:bg-slate-700"
+                                                />
+                                            </label>
+
+                                            <label
+                                                class="flex flex-col items-center group/chk"
+                                                [class.cursor-not-allowed]="
+                                                    col.isNullable || col.isFk
+                                                "
+                                                [class.opacity-50]="col.isNullable || col.isFk"
+                                                [class.cursor-pointer]="
+                                                    !col.isNullable && !col.isFk
+                                                "
+                                                [title]="
+                                                    col.isFk
+                                                        ? 'Foreign Keys cannot be Identity'
+                                                        : dbEngine() === 'mysql'
+                                                          ? 'Auto Increment'
+                                                          : 'Identity'
+                                                "
+                                            >
+                                                <span
+                                                    class="text-[8px] font-bold text-slate-400 mb-0.5 group-hover/chk:text-purple-600"
+                                                >
+                                                    {{ dbEngine() === 'mysql' ? 'AI' : 'ID' }}
+                                                </span>
+                                                <input
+                                                    type="checkbox"
+                                                    [checked]="col.isIdentity"
+                                                    [disabled]="col.isNullable || col.isFk"
+                                                    (change)="
+                                                        handleColUpdate(
+                                                            col.id,
+                                                            'isIdentity',
+                                                            $any($event.target).checked
+                                                        )
+                                                    "
+                                                    class="w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-600 text-purple-600 focus:ring-0 dark:bg-slate-700"
+                                                    [class.cursor-not-allowed]="
+                                                        col.isNullable || col.isFk
+                                                    "
+                                                    [class.bg-slate-100]="
+                                                        col.isNullable || col.isFk
+                                                    "
+                                                    [class.dark:bg-slate-800]="
+                                                        col.isNullable || col.isFk
+                                                    "
+                                                    [class.cursor-pointer]="
+                                                        !col.isNullable && !col.isFk
+                                                    "
+                                                />
+                                            </label>
+                                        </div>
+
+                                        <!-- Divider -->
+                                        <div
+                                            class="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"
+                                        ></div>
+
+                                        <!-- Actions -->
+                                        <div class="flex gap-2">
+                                            <button
+                                                (click)="
+                                                    !col.isNullable &&
+                                                        handleColUpdate(col.id, 'isPk', !col.isPk)
+                                                "
+                                                [disabled]="col.isNullable"
+                                                class="flex items-center justify-center gap-1 px-2 h-7 rounded border transition-all"
+                                                [class]="
+                                                    col.isPk
+                                                        ? 'bg-amber-100 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700 text-amber-600 dark:text-amber-500'
+                                                        : col.isNullable
+                                                          ? 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-300 dark:text-slate-600 cursor-not-allowed'
+                                                          : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-300 dark:text-slate-500 hover:border-amber-300 hover:text-amber-400'
+                                                "
+                                                title="Primary Key"
+                                            >
+                                                <!-- Key Icon -->
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="12"
+                                                    height="12"
+                                                    viewBox="0 0 24 24"
+                                                    [attr.fill]="col.isPk ? 'currentColor' : 'none'"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                >
+                                                    <path
+                                                        d="M12.65 10C11.83 7.67 9.61 6 7 6a6 6 0 0 0 0 12c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"
+                                                    />
+                                                </svg>
+                                                <span class="text-[9px] font-bold">PK</span>
+                                            </button>
+
+                                            <button
+                                                (click)="
+                                                    deleteColumn.emit({
+                                                        tableId: selectedTable()!.id,
+                                                        colId: col.id,
+                                                    })
+                                                "
+                                                class="flex items-center justify-center w-7 h-7 rounded border bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-200 dark:hover:border-red-800 hover:text-red-500 transition-all"
+                                            >
+                                                <!-- Trash2 Icon -->
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="12"
+                                                    height="12"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                >
+                                                    <path d="M3 6h18" />
+                                                    <path
+                                                        d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"
+                                                    />
+                                                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </aside>
+}

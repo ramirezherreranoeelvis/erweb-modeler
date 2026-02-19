@@ -1,0 +1,159 @@
+<div
+    class="px-3 py-2 border-b border-slate-200 dark:border-slate-700 rounded-t-lg flex justify-between items-center transition-colors duration-200"
+    [class]="
+        isSelected()
+            ? 'bg-linear-to-r from-blue-50 to-white dark:from-blue-900/20 dark:to-slate-800'
+            : 'bg-slate-50 dark:bg-[#111b33]'
+    "
+    (dblclick)="handleDoubleClick($event)"
+>
+    <div class="flex-1 min-w-0 mr-2">
+        @if (isEditing()) {
+            <input
+                #nameInput
+                type="text"
+                [ngModel]="editValue()"
+                (ngModelChange)="editValue.set($event)"
+                (blur)="handleSubmit()"
+                (keydown.enter)="handleSubmit()"
+                (keydown.escape)="cancelEdit()"
+                (mousedown)="$event.stopPropagation()"
+                class="w-full text-sm font-bold bg-white dark:bg-slate-900 border rounded px-1 outline-none"
+                [class.border-red-500]="isDuplicate()"
+                [class.text-red-600]="isDuplicate()"
+                [class.border-blue-400]="!isDuplicate()"
+                [class.text-slate-800]="!isDuplicate()"
+                [class.dark:text-slate-100]="!isDuplicate()"
+                autoFocus
+            />
+        } @else {
+            <div
+                class="font-bold text-sm truncate leading-tight cursor-text"
+                [class]="
+                    isLocked()
+                        ? 'text-blue-800 dark:text-blue-300'
+                        : 'text-slate-800 dark:text-slate-100'
+                "
+                [title]="
+                    isLocked() ? 'Table locked. Double click to rename' : 'Double click to rename'
+                "
+            >
+                {{ displayValue() }}
+            </div>
+        }
+
+        @if (viewMode() === 'logical' && !isEditing()) {
+            <div class="text-[10px] text-slate-400 font-mono truncate">{{ table().name }}</div>
+        }
+    </div>
+
+    <div
+        class="flex items-center gap-1 transition-opacity duration-200"
+        [class]="
+            isSelected() || isExpanded() ? 'opacity-100' : 'opacity-0 group-hover/table:opacity-100'
+        "
+    >
+        <button
+            (pointerdown)="$event.stopPropagation()"
+            (click)="handleToggleExpand($event)"
+            class="p-1.5 rounded-md transition-colors"
+            [class]="
+                isExpanded()
+                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300'
+                    : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+            "
+            [title]="isExpanded() ? 'Collapse Table' : 'Expand Table'"
+        >
+            @if (isExpanded()) {
+                <!-- Minimize2 -->
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <polyline points="4 14 10 14 10 20" />
+                    <polyline points="20 10 14 10 14 4" />
+                    <line x1="14" x2="21" y1="10" y2="3" />
+                    <line x1="3" x2="10" y1="21" y2="14" />
+                </svg>
+            } @else {
+                <!-- Maximize2 -->
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <polyline points="15 3 21 3 21 9" />
+                    <polyline points="9 21 3 21 3 15" />
+                    <line x1="21" x2="14" y1="3" y2="10" />
+                    <line x1="3" x2="10" y1="21" y2="14" />
+                </svg>
+            }
+        </button>
+
+        <button
+            (pointerdown)="$event.stopPropagation()"
+            (click)="handleConfig($event)"
+            class="md:hidden p-1.5 rounded-md transition-colors text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+            title="Configure Table"
+        >
+            <!-- Settings -->
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+                <path
+                    d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+                />
+                <circle cx="12" cy="12" r="3" />
+            </svg>
+        </button>
+
+        <button
+            (pointerdown)="$event.preventDefault(); $event.stopPropagation()"
+            (click)="toggleLock($event)"
+            class="p-1.5 rounded-md transition-colors"
+            [class]="
+                table().isManuallyEditable
+                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300'
+                    : 'text-slate-300 dark:text-slate-500 hover:text-slate-500 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+            "
+            [title]="table().isManuallyEditable ? 'Editable' : 'Read-only'"
+        >
+            <!-- Edit3 -->
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+            </svg>
+        </button>
+    </div>
+</div>

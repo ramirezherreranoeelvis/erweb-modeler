@@ -1,0 +1,255 @@
+<div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div
+        class="bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-200 dark:border-slate-700 w-full animate-[zoomIn_0.1s_ease-out] overflow-hidden"
+        [class.max-w-lg]="isCollision()"
+        [class.max-w-md]="!isCollision()"
+    >
+        <!-- Header -->
+        <div
+            class="p-4 border-b border-slate-100 dark:border-slate-700 flex items-center gap-3"
+            [class.bg-blue-50]="isCollision()"
+            [class.dark:bg-blue-900/20]="isCollision()"
+            [class.bg-amber-50]="!isCollision()"
+            [class.dark:bg-amber-900/30]="!isCollision()"
+        >
+            <div
+                class="p-2 rounded-full"
+                [class.bg-blue-100]="isCollision()"
+                [class.dark:bg-blue-800]="isCollision()"
+                [class.text-blue-600]="isCollision()"
+                [class.dark:text-blue-400]="isCollision()"
+                [class.bg-amber-100]="!isCollision()"
+                [class.dark:bg-amber-800]="!isCollision()"
+                [class.text-amber-600]="!isCollision()"
+                [class.dark:text-amber-400]="!isCollision()"
+            >
+                @if (isCollision()) {
+                    <!-- Link2 -->
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path d="M9 17H7A5 5 0 0 1 7 7h2" />
+                        <path d="M15 7h2a5 5 0 0 1 0 10h-2" />
+                        <line x1="8" x2="16" y1="12" y2="12" />
+                    </svg>
+                } @else {
+                    <!-- AlertTriangle -->
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path
+                            d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"
+                        />
+                        <line x1="12" x2="12" y1="9" y2="13" />
+                        <line x1="12" x2="12.01" y1="17" y2="17" />
+                    </svg>
+                }
+            </div>
+            <div>
+                <h3 class="font-bold text-lg text-slate-800 dark:text-slate-100">
+                    {{ isCollision() ? 'Connection Options' : 'Integrity Warning' }}
+                </h3>
+                @if (isCollision()) {
+                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                        Target column <strong>{{ data().data.targetCol?.name }}</strong> matches
+                        source.
+                    </p>
+                }
+            </div>
+        </div>
+
+        @if (isCollision()) {
+            <!-- Collision Content -->
+            <div class="p-6 grid gap-4">
+                <!-- Use Existing -->
+                <div
+                    class="p-4 rounded-lg border-2 border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 transition-all hover:border-blue-300 dark:hover:border-blue-700"
+                >
+                    <div class="flex items-start gap-3 mb-3">
+                        <div
+                            class="mt-1 bg-slate-100 dark:bg-slate-700 p-2 rounded text-blue-600 dark:text-blue-400"
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                <path d="M9 17H7A5 5 0 0 1 7 7h2" />
+                                <path d="M15 7h2a5 5 0 0 1 0 10h-2" />
+                                <line x1="8" x2="16" y1="12" y2="12" />
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="font-bold text-slate-800 dark:text-slate-100 mb-1">
+                                Link to Existing Column
+                            </h4>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mb-2">
+                                Select an existing column in the target table to use as the Foreign
+                                Key.
+                            </p>
+
+                            <select
+                                [ngModel]="selectedTargetColId()"
+                                (ngModelChange)="selectedTargetColId.set($event)"
+                                class="w-full p-2 text-xs rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
+                            >
+                                @if (candidates().length === 0) {
+                                    <option value="" disabled selected>
+                                        No compatible columns found
+                                    </option>
+                                }
+                                @for (col of candidates(); track col.id) {
+                                    <option [value]="col.id">
+                                        {{ col.name }} ({{ col.type }})
+                                    </option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <button
+                        (click)="emitResolve('use_existing')"
+                        [disabled]="!selectedTargetColId()"
+                        class="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded shadow-sm transition-colors"
+                    >
+                        Link to Selected Column
+                    </button>
+                </div>
+
+                <!-- Create New -->
+                <button
+                    (click)="emitResolve('create_new')"
+                    class="flex items-start gap-4 p-4 rounded-lg border-2 border-slate-200 dark:border-slate-700 hover:border-green-500 dark:hover:border-green-500 hover:bg-green-50 dark:hover:bg-slate-700/50 transition-all text-left group"
+                >
+                    <div
+                        class="mt-1 bg-slate-100 dark:bg-slate-700 p-2 rounded text-slate-600 dark:text-slate-300 group-hover:text-green-600 group-hover:bg-green-100"
+                    >
+                        <!-- CopyPlus -->
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                            <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                            <line x1="15" x2="15" y1="12" y2="18" />
+                            <line x1="12" x2="18" y1="15" y2="15" />
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <h4
+                            class="font-bold text-slate-800 dark:text-slate-100 group-hover:text-green-600 dark:group-hover:text-green-400"
+                        >
+                            Create New Column
+                        </h4>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            Keep existing columns as-is and create a new one (e.g.
+                            <code>{{ data().data.sourceCol.name }}_1</code>).
+                        </p>
+                    </div>
+                </button>
+            </div>
+        } @else {
+            <!-- Integrity Content -->
+            <div class="p-5 space-y-4">
+                <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                    The target column
+                    <span class="font-bold text-slate-800 dark:text-white">
+                        {{ data().data.targetCol?.name }}
+                    </span>
+                    has different properties than source
+                    <span class="font-bold text-slate-800 dark:text-white">
+                        {{ data().data.sourceCol.name }}
+                    </span>
+                    .
+                </p>
+                <div
+                    class="bg-slate-50 dark:bg-slate-900 p-3 rounded border border-slate-200 dark:border-slate-700 text-xs font-mono space-y-1"
+                >
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-400">Source:</span>
+                        <span class="text-blue-600 dark:text-blue-400 font-bold">
+                            {{ data().data.sourceCol.type }}({{ data().data.sourceCol.length }})
+                        </span>
+                    </div>
+                    <div class="flex justify-center my-1 text-slate-300">
+                        <!-- Arrow Down -->
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <line x1="12" x2="12" y1="5" y2="19" />
+                            <polyline points="19 12 12 19 5 12" />
+                        </svg>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-400">Target:</span>
+                        <span class="text-red-500 font-bold line-through decoration-2">
+                            {{ data().data.targetCol?.type }}({{ data().data.targetCol?.length }})
+                        </span>
+                    </div>
+                </div>
+                <p class="text-sm text-slate-600 dark:text-slate-400">
+                    Continuing will
+                    <strong class="text-amber-600 dark:text-amber-400">overwrite</strong> target
+                    properties.
+                </p>
+            </div>
+        }
+
+        <!-- Footer -->
+        <div
+            class="p-4 bg-slate-50 dark:bg-slate-900 rounded-b-lg flex justify-end gap-3 border-t border-slate-100 dark:border-slate-700"
+        >
+            <button
+                (click)="cancel.emit()"
+                class="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+            >
+                Cancel
+            </button>
+
+            @if (!isCollision()) {
+                <button
+                    (click)="confirmIntegrity.emit()"
+                    class="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded shadow-sm transition-colors"
+                >
+                    Sync & Connect
+                </button>
+            }
+        </div>
+    </div>
+</div>

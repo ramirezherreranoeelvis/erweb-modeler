@@ -1,0 +1,128 @@
+<aside 
+      class="fixed md:relative top-14 md:top-0 bottom-0 left-0 z-30 shrink-0 flex flex-col bg-white dark:bg-[#0B1120] border-r border-slate-200 dark:border-slate-800 shadow-xl md:shadow-none overflow-hidden transition-[width,transform,opacity] duration-300 ease-in-out"
+      [class.w-64]="true"
+      [class.md:w-64]="isOpen()"
+      [class.md:w-0]="!isOpen()"
+      [class.translate-x-0]="isOpen()"
+      [class.-translate-x-full]="!isOpen()"
+      [class.md:translate-x-0]="true"
+      [class.opacity-0]="!isOpen() && !isMobile()"
+      [class.md:opacity-100]="isOpen()">
+      
+      <!-- Inner Container: Uses w-full to fit within the aside's padding without overflowing -->
+      <div class="w-full flex flex-col h-full">
+        
+        <!-- Scrollable Content -->
+        <div class="flex-1 overflow-y-auto p-3 space-y-4">
+          
+          <!-- Global Edit Mode Card -->
+          <div class="relative">
+            <button 
+              (click)="toggleGlobalEditable()"
+              class="w-full text-left p-3 rounded-xl border transition-all duration-200 group relative overflow-hidden"
+              [class]="globalEditable() 
+                ? 'bg-blue-600/10 border-blue-500/50' 
+                : 'bg-slate-100 dark:bg-[#151e32] border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'"
+            >
+              <div class="flex items-center gap-3 relative z-10">
+                <div 
+                  class="p-2 rounded-lg shrink-0 transition-colors"
+                  [class]="globalEditable() 
+                    ? 'bg-blue-500 text-white' 
+                    : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400'"
+                >
+                  @if (globalEditable()) {
+                    <!-- Unlock/Edit Icon -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                  } @else {
+                    <!-- Lock Icon -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  }
+                </div>
+                
+                <div class="flex-1 min-w-0">
+                  <div 
+                    class="font-bold text-sm leading-tight mb-0.5 truncate"
+                    [class]="globalEditable() ? 'text-blue-500 dark:text-blue-400' : 'text-slate-700 dark:text-slate-200'"
+                  >
+                    Global Edit Mode
+                  </div>
+                  <div class="text-[10px] text-slate-500 dark:text-slate-500 leading-tight truncate">
+                    {{ globalEditable() ? 'All tables unlocked' : 'Manual selection' }}
+                  </div>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <!-- Compact Action Buttons Grid -->
+          <div class="grid grid-cols-2 gap-2">
+            <button 
+              (click)="addTable.emit()"
+              class="flex items-center justify-center gap-2 py-2 px-3 bg-white dark:bg-[#151e32] border border-blue-500/30 dark:border-blue-500/30 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all group shadow-sm hover:shadow-md"
+            >
+              <!-- Plus Icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+              <span class="text-xs font-bold text-blue-600 dark:text-blue-400">New Table</span>
+            </button>
+            
+            <button 
+              (click)="handleDelete()"
+              [disabled]="!selectedId()"
+              class="flex items-center justify-center gap-2 py-2 px-3 bg-white dark:bg-[#151e32] border border-slate-200 dark:border-slate-700 rounded-lg transition-all group shadow-sm"
+              [class]="selectedId()
+                ? 'hover:border-red-500/50 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer'
+                : 'opacity-50 cursor-not-allowed'"
+            >
+              <!-- Trash Icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                   [class]="selectedId() ? 'text-slate-500 dark:text-slate-400 group-hover:text-red-500' : 'text-slate-300 dark:text-slate-600'">
+                   <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+              </svg>
+              <span class="text-xs font-bold transition-colors"
+                    [class]="selectedId() ? 'text-slate-600 dark:text-slate-300 group-hover:text-red-600 dark:group-hover:text-red-400' : 'text-slate-400 dark:text-slate-600'">
+                Delete
+              </span>
+            </button>
+          </div>
+
+          <!-- Divider -->
+          <div class="h-px bg-slate-100 dark:bg-slate-800"></div>
+
+          <!-- View Options -->
+          <div>
+            <h3 class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              View Options
+            </h3>
+            
+            <div class="space-y-1">
+              @for (option of viewOptionKeys(); track option.key) {
+                <label class="flex items-center gap-3 p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer group transition-colors">
+                  <div class="relative flex items-center justify-center shrink-0">
+                    <input 
+                      type="checkbox"
+                      [checked]="option.value"
+                      (change)="updateOption(option.key, $any($event.target).checked)"
+                      class="peer appearance-none w-4 h-4 rounded border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 checked:bg-blue-500 checked:border-blue-500 transition-all cursor-pointer"
+                    >
+                    <svg class="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity duration-200" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                  <span class="text-xs font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors select-none truncate">
+                    {{ option.label }}
+                  </span>
+                </label>
+              }
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Footer Tip -->
+        <div class="p-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0d1425]">
+           <p class="text-[10px] text-slate-400 dark:text-slate-500 leading-relaxed italic text-center">
+             Tip: Right-click canvas for quick settings. Double-click table to edit.
+           </p>
+        </div>
+      </div>
+    </aside>

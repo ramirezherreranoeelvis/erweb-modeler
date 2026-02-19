@@ -1,0 +1,273 @@
+<!-- START CARDINALITY -->
+<!-- 1-1 -->
+<svg:marker
+    id="oneStart"
+    [attr.markerWidth]="w"
+    [attr.markerHeight]="h"
+    refX="0"
+    [attr.refY]="midY"
+    orient="auto"
+    markerUnits="userSpaceOnUse"
+>
+    <svg:line
+        [attr.x1]="0"
+        [attr.y1]="midY"
+        [attr.x2]="16"
+        [attr.y2]="midY"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+    <svg:line
+        [attr.x1]="6"
+        [attr.y1]="0"
+        [attr.x2]="6"
+        [attr.y2]="h"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+    <svg:line
+        [attr.x1]="12"
+        [attr.y1]="0"
+        [attr.x2]="12"
+        [attr.y2]="h"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+</svg:marker>
+
+<!-- 1-0 -->
+<svg:marker
+    id="zeroOneStart"
+    [attr.markerWidth]="w"
+    [attr.markerHeight]="h"
+    refX="0"
+    [attr.refY]="midY"
+    orient="auto"
+    markerUnits="userSpaceOnUse"
+>
+    <svg:line
+        [attr.x1]="0"
+        [attr.y1]="midY"
+        [attr.x2]="w"
+        [attr.y2]="midY"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+    <svg:line
+        [attr.x1]="6"
+        [attr.y1]="0"
+        [attr.x2]="6"
+        [attr.y2]="h"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+    <svg:circle
+        [attr.cx]="10"
+        [attr.cy]="midY"
+        r="3"
+        [attr.fill]="circleFill()"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+</svg:marker>
+
+<!-- Many -->
+<svg:marker
+    id="manyStart"
+    [attr.markerWidth]="w"
+    [attr.markerHeight]="h"
+    refX="2"
+    [attr.refY]="midY"
+    orient="auto"
+    markerUnits="userSpaceOnUse"
+>
+    <svg:line
+        [attr.x1]="0"
+        [attr.y1]="midY"
+        [attr.x2]="16"
+        [attr.y2]="midY"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+    <svg:path
+        [attr.d]="'M0,0 L8,' + midY + ' L0,' + h"
+        fill="none"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+</svg:marker>
+
+<!-- END CARDINALITY -->
+<!-- 1-M -->
+<svg:marker
+    id="oneManyEnd"
+    [attr.markerWidth]="w"
+    [attr.markerHeight]="h"
+    [attr.refX]="w"
+    [attr.refY]="midY"
+    orient="auto"
+    markerUnits="userSpaceOnUse"
+>
+    <svg:line
+        [attr.x1]="10"
+        [attr.y1]="midY"
+        [attr.x2]="24"
+        [attr.y2]="midY"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+    <svg:line
+        [attr.x1]="16"
+        [attr.y1]="0"
+        [attr.x2]="16"
+        [attr.y2]="h"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+    <svg:path
+        [attr.d]="'M24,0 L16,' + midY + ' L24,' + h"
+        fill="none"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+</svg:marker>
+
+<!-- Many -->
+<svg:marker
+    id="manyEnd"
+    [attr.markerWidth]="w"
+    [attr.markerHeight]="h"
+    [attr.refX]="w"
+    [attr.refY]="midY"
+    orient="auto"
+    markerUnits="userSpaceOnUse"
+>
+    <svg:line
+        [attr.x1]="10"
+        [attr.y1]="midY"
+        [attr.x2]="24"
+        [attr.y2]="midY"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+    <svg:path
+        [attr.d]="'M24,0 L16,' + midY + ' L24,' + h"
+        fill="none"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+</svg:marker>
+
+<!-- 1-1 -->
+<svg:marker
+    id="oneEnd"
+    [attr.markerWidth]="w"
+    [attr.markerHeight]="h"
+    [attr.refX]="w"
+    [attr.refY]="midY"
+    orient="auto"
+    markerUnits="userSpaceOnUse"
+>
+    <svg:line
+        [attr.x1]="6"
+        [attr.y1]="midY"
+        [attr.x2]="22"
+        [attr.y2]="midY"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+    <svg:line
+        [attr.x1]="10"
+        [attr.y1]="0"
+        [attr.x2]="10"
+        [attr.y2]="h"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+    <svg:line
+        [attr.x1]="16"
+        [attr.y1]="0"
+        [attr.x2]="16"
+        [attr.y2]="h"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+</svg:marker>
+
+<!-- 1-0-M -->
+<svg:marker
+    id="zeroManyEnd"
+    [attr.markerWidth]="w"
+    [attr.markerHeight]="h"
+    [attr.refX]="w"
+    [attr.refY]="midY"
+    orient="auto"
+    markerUnits="userSpaceOnUse"
+>
+    <svg:line
+        [attr.x1]="10"
+        [attr.y1]="midY"
+        [attr.x2]="24"
+        [attr.y2]="midY"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+    <svg:circle
+        [attr.cx]="12"
+        [attr.cy]="midY"
+        r="3"
+        [attr.fill]="circleFill()"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+    <svg:line
+        [attr.x1]="16"
+        [attr.y1]="0"
+        [attr.x2]="16"
+        [attr.y2]="h"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+    <svg:path
+        [attr.d]="'M24,0 L16,' + midY + ' L24,' + h"
+        fill="none"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+</svg:marker>
+
+<!-- 1-0 -->
+<svg:marker
+    id="zeroOneEnd"
+    [attr.markerWidth]="w"
+    [attr.markerHeight]="h"
+    [attr.refX]="w"
+    [attr.refY]="midY"
+    orient="auto"
+    markerUnits="userSpaceOnUse"
+>
+    <svg:line
+        [attr.x1]="0"
+        [attr.y1]="midY"
+        [attr.x2]="w"
+        [attr.y2]="midY"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+    <svg:line
+        [attr.x1]="15"
+        [attr.y1]="0"
+        [attr.x2]="15"
+        [attr.y2]="h"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+    <svg:circle
+        [attr.cx]="12"
+        [attr.cy]="midY"
+        r="3"
+        [attr.fill]="circleFill()"
+        [attr.stroke]="strokeColor()"
+        stroke-width="1.5"
+    />
+</svg:marker>
